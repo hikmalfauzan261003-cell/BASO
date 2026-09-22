@@ -20,7 +20,7 @@ st.divider()
 # ---------------------------------------------------------
 # DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE
 # ---------------------------------------------------------
-TEMPLATE_DRIVE_URL = "https://docs.google.com/document/d/1pqxqLCf-N6HxjXI7KZuRMikWEjiMIVlW/edit?usp=drive_link&ouid=112740836268247118661&rtpof=true&sd=true"
+TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download&id=1pqxqLCf-N6HxjXI7KZuRMikWEjiMIVlWI"
 
 
 @st.cache_data
@@ -29,6 +29,7 @@ def fetch_master_template():
     response = requests.get(TEMPLATE_DRIVE_URL)
     response.raise_for_status()
     return io.BytesIO(response.content)
+    return response.content
 
 # ==========================================
 # 1. FORM INPUT HEADER & METADATA
