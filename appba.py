@@ -1,4 +1,6 @@
 import os
+import io
+import requests
 import subprocess
 import tempfile
 import pandas as pd
@@ -33,10 +35,16 @@ def fetch_master_template():
 # ==========================================
 with st.expander("📌 Informasi Umum & Header Audit", expanded=True):
     col1, col2 = st.columns(2)
+    
+    daftar_bulan = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ]
+    
     with col1:
         hari = st.selectbox("Hari Audit", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"])
         tanggal = st.number_input("Tanggal", min_value=1, max_value=31, value=15)
-        bulan = st.selectbox("Bulan", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+        bulan = st.selectbox("Bulan Berita Acara", daftar_bulan, index=1)
         tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
         lokasi_bandara = st.text_input("Lokasi / Bandara (contoh: PLM / Palembang)", "PLM")
         alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
@@ -44,9 +52,20 @@ with st.expander("📌 Informasi Umum & Header Audit", expanded=True):
     with col2:
         tgl_mulai = st.date_input("Tanggal Mulai Audit")
         tgl_selesai = st.date_input("Tanggal Selesai Audit")
-        pj_store = st.text_input("Penanggung Jawab Store LM", "Nama PJ Store")
         audit_aset = st.text_input("Nama Pelaksana Audit Aset", "Nama Auditor Aset")
         pic_lm = st.text_input("Nama PIC Line Maintenance", "Nama PIC LM")
+
+    st.markdown("---")
+    st.markdown("##### 👤 Penanggung Jawab (PJ) Store LM")
+    col_pj1, col_pj2 = st.columns(2)
+    
+    with col_pj1:
+        bulan_lalu = st.selectbox("Pilih Bulan Sebelumnya", daftar_bulan, index=0, key="select_bulan_lalu")
+        pj_store_lalu = st.text_input(f"Nama PJ Store LM (Periode {bulan_lalu})", "Nama PJ Store Bulan Lalu")
+
+    with col_pj2:
+        bulan_ini = st.selectbox("Pilih Bulan Sekarang", daftar_bulan, index=1, key="select_bulan_ini")
+        pj_store_ini = st.text_input(f"Nama PJ Store LM (Periode {bulan_ini})", "Nama PJ Store Bulan Sekarang")
 
 # ==========================================
 # 2. INPUT TABEL DATA (EDITABLE TABLES)
@@ -154,7 +173,14 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
             "alamat": alamat,
             "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
             "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
-            "pj_store": pj_store,
+            
+            # Data PJ Store LM (Bulan Lalu & Bulan Sekarang)
+            "bulan_lalu": bulan_lalu,
+            "pj_store_lalu": pj_store_lalu,
+            "bulan_ini": bulan_ini,
+            "pj_store_ini": pj_store_ini,
+            
+            # Informasi Auditor & PIC
             "audit_aset": audit_aset,
             "pic_lm": pic_lm,
             
