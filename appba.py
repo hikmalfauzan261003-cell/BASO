@@ -14,6 +14,21 @@ st.set_page_config(
 st.title("📋 Generator Berita Acara Stock Opname Bandara")
 st.write("Isi formulir di bawah ini untuk menghasilkan dokumen Berita Acara dalam format Word (.docx) atau PDF.")
 
+st.divider()
+
+# ---------------------------------------------------------
+# DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE
+# ---------------------------------------------------------
+TEMPLATE_DRIVE_URL = "https://docs.google.com/document/d/1pqxqLCf-N6HxjXI7KZuRMikWEjiMIVlW/edit?usp=drive_link&ouid=112740836268247118661&rtpof=true&sd=true"
+
+
+@st.cache_data
+def fetch_master_template():
+    """Mengunduh template master dari Google Drive dan menyimpannya di cache Streamlit."""
+    response = requests.get(TEMPLATE_DRIVE_URL)
+    response.raise_for_status()
+    return io.BytesIO(response.content)
+
 # ==========================================
 # 1. FORM INPUT HEADER & METADATA
 # ==========================================
