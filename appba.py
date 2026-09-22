@@ -20,15 +20,22 @@ st.divider()
 # ---------------------------------------------------------
 # DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE
 # ---------------------------------------------------------
-TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download&id=1pqxqLCf-N6HxjXI7KZuRMikWEjiMIVlWI"
+# File ID dari link Google Drive Anda
+FILE_ID = "1pqxqLCf-N6HxjXI7KZuRMikWEjiMIVlW"
+
+# Gunakan URL Export Direct Download untuk file Word (.docx)
+TEMPLATE_DRIVE_URL = f"https://docs.google.com/document/d/{FILE_ID}/export?format=docx"
+
+# Jika file di Drive berupa file .docx asli yang di-upload (bukan format Google Docs native), gunakan URL ini:
+# TEMPLATE_DRIVE_URL = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
 
 
-@st.cache_data
-def fetch_master_template():
+@st.cache_data(ttl=3600)  # Cache selama 1 jam agar Streamlit tidak perlu mendownload ulang setiap kali tombol diklik
+def fetch_master_template(url: str) -> bytes:
     """Mengunduh template master dari Google Drive dan menyimpannya di cache Streamlit."""
-    response = requests.get(TEMPLATE_DRIVE_URL)
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return io.BytesIO(response.content)
     return response.content
 
 # ==========================================
@@ -157,12 +164,17 @@ def convert_docx_to_pdf(docx_path, output_dir):
 # ==========================================
 st.divider()
 if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
-    template_path = "templates/BA_SO_TEMPLATE.docx"
-
-    if not os.path.exists(template_path):
-        st.error(f"File template '{template_path}' tidak ditemukan. Pastikan sudah diunggah di folder templates/")
-    else:
-        doc = DocxTemplate(template_path)
+    with st.spinner("Mengunduh template master dari Google Drive & memproses dokumen..."):
+        try:
+            # 1. Unduh template master dari Google Drive
+            template_bytes = fetch_master_template(TEMPLATE_DRIVE_URL)
+            
+            # 2. Buka template langsung dari memory stream (BytesIO)
+            doc = DocxTemplate(io.BytesIO(template_bytes))
+        except Exception as e:
+            st.error(f"❌ Gagal mengambil template dari Google Drive: {e}")
+            st.info("Pastikan file di Google Drive sudah di-set 'Anyone with the link' / 'Siapa saja yang memiliki link'!")
+            st.stop()
 
         # Menyiapkan data context untuk dimasukkan ke template Word
         context = {
@@ -175,7 +187,7 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
             "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
             "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
             
-            # Data PJ Store LM (Bulan Lalu & Bulan Sekarang)
+            # Data PJ Store LM
             "bulan_lalu": bulan_lalu,
             "pj_store_lalu": pj_store_lalu,
             "bulan_ini": bulan_ini,
@@ -196,7 +208,7 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
         # Render template dengan data dari form
         doc.render(context)
 
-        # Gunakan temporary directory untuk menyimpan file output
+        # Gunakan temporary directory untuk menyimpan file output hasil pengisian
         with tempfile.TemporaryDirectory() as tmpdir:
             file_title = f"BA_Stock_Opname_{lokasi_bandara}_{tahun}"
             docx_path = os.path.join(tmpdir, f"{file_title}.docx")
@@ -235,4 +247,4 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
                         use_container_width=True
                     )
                 else:
-                    st.warning("⚠️ Konversi PDF hanya berfungsi jika LibreOffice terpasang (misal di Streamlit Cloud/Linux).")
+                    st.warning("⚠️ Konversi PDF membutuhkan LibreOffice (otomatis aktif di Linux/Streamlit Cloud).")
