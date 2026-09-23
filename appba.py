@@ -42,30 +42,30 @@ if st.session_state["page"] == "landing":
         st.warning("⚠️ Data folder belum dimuat atau folder di Google Drive masih kosong.")
         st.stop()
 
-    # Step 1: Pilih Unit Kerja / Kategori
-    st.subheader("1️⃣ Pilih Unit Kerja")
-    kategori_list = list(template_config.keys())
-    selected_kategori = st.radio(
-        "Unit Kerja:",
-        options=kategori_list,
-        horizontal=True,
-        index=0
+ # Step 1: Pilih Station / Lokasi
+    st.subheader("1️⃣ Pilih Station / Lokasi Bandara")
+    all_stations = list(station_config.keys())
+    selected_station = st.selectbox(
+        "Daftar Station Tersedia:",
+        options=all_stations
     )
 
     st.markdown("---")
 
-    # Step 2: Pilih Station
-    st.subheader(f"2️⃣ Pilih Station / Lokasi ({selected_kategori})")
-    stations_available = template_config.get(selected_kategori, {})
+    # Step 2: Pilih Unit Kerja berdasarkan Station yang dipilih
+    st.subheader(f"2️⃣ Pilih Unit Kerja di {selected_station}")
+    units_available = station_config.get(selected_station, {})
 
-    if stations_available:
-        station_list = list(stations_available.keys())
-        selected_station = st.selectbox(
-            "Daftar Station Tersedia:",
-            options=station_list
+    if units_available:
+        unit_list = list(units_available.keys())
+        selected_kategori = st.radio(
+            "Unit Kerja Tersedia:",
+            options=unit_list,
+            horizontal=True,
+            index=0
         )
 
-        station_info = stations_available[selected_station]
+        station_info = units_available[selected_kategori]
 
         st.info(f"📌 **Template Terhubung:** `{station_info['file_name']}`\n\n🆔 **Drive File ID:** `{station_info['file_id']}`")
 
@@ -79,6 +79,4 @@ if st.session_state["page"] == "landing":
                 st.session_state["page"] = "form_input"
                 st.rerun()
     else:
-        st.warning("⚠️ Belum ada folder station untuk unit kerja ini di Drive.")
-
-
+        st.warning("⚠️ Belum ada unit kerja yang terdaftar untuk station ini.")
