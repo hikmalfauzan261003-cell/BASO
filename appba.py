@@ -188,7 +188,7 @@ elif st.session_state["page"] == "form_input":
     # ---------------------------------------------------------
     st.divider()
     if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
-        template_path = "templates/MASTER_BA_SO.docx"
+        template_path = "TEMPLATE MASTER BERITA ACARA STOCK OPNAME AUDIT ASSET.docx"
 
         if not os.path.exists(template_path):
             st.error(f"❌ Template master tidak ditemukan di `{template_path}`. Pastikan file `.docx` sudah ada di folder `templates/` repo GitHub lu.")
