@@ -11,9 +11,13 @@ ROOT_FOLDER_ID = "1m7Z7KNngFRvYn9lpPfnVfeNaM-BJLdKi"
 def get_drive_service():
     """Inisialisasi koneksi ke Google Drive API pake Service Account."""
     scopes = ["https://www.googleapis.com/auth/drive.readonly"]
-    # Credentials disimpan aman di Streamlit Secrets (.streamlit/secrets.toml)
+    
+    # Ambil secrets dan perbaiki format newline pada private_key otomatis
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    
     creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], 
+        creds_dict, 
         scopes=scopes
     )
     return build("drive", "v3", credentials=creds)
