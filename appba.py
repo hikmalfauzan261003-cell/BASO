@@ -16,12 +16,12 @@ st.set_page_config(
 # ---------------------------------------------------------
 # Lu bisa sesuaikan daftar station & unit kerja di bawah ini
 DATA_STATION = {
-    "PLM - Palembang": ["Line Maintenance", "GSE"],
-    "CGK - Cengkareng": ["Line Maintenance", "GSE"],
-    "SUB - Surabaya": ["Line Maintenance & Scheduled Maintenance", "GSE"],
-    "KNO - Medan": ["Line Maintenance", "GSE"],
-    "BTH - Batam": ["Line Maintenance", "GSE", "Warehouse", "Base Maintenance", "Shop"],
-    "MST - Jakarta": ["Warehouse", "Shop"],
+    "PLM": ["Line Maintenance", "GSE"],
+    "CGK": ["Line Maintenance", "GSE"],
+    "SUB": ["Line Maintenance & Scheduled Maintenance", "GSE"],
+    "KNO": ["Line Maintenance", "GSE"],
+    "BTH": ["Line Maintenance", "GSE", "Warehouse", "Base Maintenance", "Shop"],
+    "MST": ["Warehouse", "Shop"],
 }
 
 def convert_docx_to_pdf(docx_path, output_dir):
@@ -103,7 +103,12 @@ elif st.session_state["page"] == "form_input":
         with col1:
             hari = st.selectbox("Hari Audit", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"])
             tanggal = st.number_input("Tanggal", min_value=1, max_value=31, value=15)
-            bulan = st.selectbox("Bulan", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+            LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+            bulan = st.selectbox("Bulan", LIST_BULAN)
+
+            # Hitung otomatis bulan lalu berdasarkan pilihan user
+            idx_bln = LIST_BULAN.index(bulan)
+            bulan_lalu = LIST_BULAN[idx_bln - 1]  # Otomatis mundur 1 bulan (Januari -> Desember)
             tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
             lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', 'PLM'))
             alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
@@ -111,7 +116,8 @@ elif st.session_state["page"] == "form_input":
         with col2:
             tgl_mulai = st.date_input("Tanggal Mulai Audit")
             tgl_selesai = st.date_input("Tanggal Selesai Audit")
-            pj_store = st.text_input("Penanggung Jawab Store LM", "Nama PJ Store")
+            pj_store_sekarang = st.text_input(f"PJ Store LM (Bulan {bulan})", "Nama PJ Store Bulan Ini")
+            pj_store_lalu = st.text_input(f"PJ Store LM (Bulan {bulan_lalu})", "Nama PJ Store Bulan Lalu")
             audit_aset = st.text_input("Nama Pelaksana Audit Aset", "Nama Auditor Aset")
             pic_lm = st.text_input("Nama PIC Line Maintenance", "Nama PIC LM")
 
@@ -196,19 +202,23 @@ elif st.session_state["page"] == "form_input":
             with st.spinner("Menyusun Berita Acara..."):
                 doc = DocxTemplate(template_path)
                 context = {
-                    "hari": str(hari).upper(),
-                    "tanggal": str(tanggal).upper(),
-                    "bulan": str(bulan).upper(),
-                    "tahun": str(tahun).upper(),
-                    "lokasi_bandara": str(lokasi_bandara).upper(),
-                    "alamat": str(alamat).upper(),
-                    "tgl_mulai_audit": tgl_mulai.strftime("%d %B %Y").upper(),
-                    "tgl_selesai_audit": tgl_selesai.strftime("%d %B %Y").upper(),
-                    "pj_store": str(pj_store).upper(),
-                    "audit_aset": str(audit_aset).upper(),
-                    "pic_lm": str(pic_lm).upper(),
-                    "station": str(st.session_state.get("station", "")).upper(),
-                    "unit_kerja": str(st.session_state.get("kategori", "")).upper(),
+                "hari": hari,
+                "tanggal": tanggal,
+                "bulan": bulan,
+                "bulan_lalu": bulan_lalu,                  # Tag nama bulan lalu (misal: "Desember")
+                "tahun": tahun,
+                "lokasi": lokasi_bandara,
+                "alamat": alamat,
+                "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
+                "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
+    
+                # Tag PJ Store
+                "pj_store": pj_store_sekarang,             # PJ Store bulan ini
+                "pj_store_lalu": pj_store_lalu,           # PJ Store 1 bulan lalu
+                "audit_aset": audit_aset,
+                "pic_lm": pic_lm,
+                "station": st.session_state.get("station", ""),
+                "unit_kerja": st.session_state.get("kategori", ""),
     
                 # Data Tabel
                     "rows_serviceable": df_serviceable.to_dict('records'),
