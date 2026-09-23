@@ -42,32 +42,43 @@ if st.session_state["page"] == "landing":
         st.warning("⚠️ Data folder belum dimuat atau folder di Google Drive masih kosong.")
         st.stop()
 
-    # 1. STEP 1: Pilih Unit Kerja (Line Maintenance, GSE, Warehouse, Shop)
-    st.subheader("1️⃣ Pilih Unit Kerja")
-    unit_list = list(raw_data.keys())
-    selected_kategori = st.selectbox(
-        "Unit Kerja Tersedia:",
-        options=unit_list,
-        horizontal=True,
-        index=0
+    # Remap data dari {Unit: {Station: Info}} jadi {Station: {Unit: Info}}
+    station_data = {}
+    for unit_name, stations in raw_data.items():
+        if isinstance(stations, dict):
+            for station_name, info in stations.items():
+                if station_name not in station_data:
+                    station_data[station_name] = {}
+                station_data[station_name][unit_name] = info
+
+    if not station_data:
+        st.warning("⚠️ Format data dari Google Drive tidak valid.")
+        st.stop()
+
+    # 1. STEP 1: Pilih Station pakai Dropdown (Selectbox)
+    st.subheader("1️⃣ Pilih Station / Lokasi Bandara")
+    station_list = sorted(list(station_data.keys()))
+    selected_station = st.selectbox(
+        "Daftar Station Tersedia:",
+        options=station_list
     )
 
     st.markdown("---")
 
-    # 2. STEP 2: Pilih Station (Ditampilkan berupa list ke bawah)
-    st.subheader(f"2️⃣ Pilih Station / Lokasi ({selected_kategori})")
-    stations_available = raw_data.get(selected_kategori, {})
+    # 2. STEP 2: Pilih Unit Kerja di Station Tersebut
+    st.subheader(f"2️⃣ Pilih Unit Kerja di {selected_station}")
+    units_available = station_data.get(selected_station, {})
 
-    if stations_available:
-        station_list = list(stations_available.keys())
-        
-        # Diganti dari selectbox ke radio (list vertikal)
-        selected_station = st.radio(
-            "Daftar Station Tersedia:",
-            options=station_list
+    if units_available:
+        unit_list = list(units_available.keys())
+        selected_kategori = st.radio(
+            "Unit Kerja Tersedia:",
+            options=unit_list,
+            horizontal=True,
+            index=0
         )
 
-        station_info = stations_available[selected_station]
+        station_info = units_available[selected_kategori]
 
         st.info(f"📌 **Template Terhubung:** `{station_info['file_name']}`\n\n🆔 **Drive File ID:** `{station_info['file_id']}`")
 
@@ -81,4 +92,4 @@ if st.session_state["page"] == "landing":
                 st.session_state["page"] = "form_input"
                 st.rerun()
     else:
-        st.warning(f"⚠️ Belum ada divisi yang terdaftar untuk station {selected_kategori}.")
+        st.warning(f"⚠️ Belum ada unit kerja yang terdaftar untuk station {selected_station}.")
