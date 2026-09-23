@@ -54,13 +54,15 @@ if st.session_state["page"] == "landing":
 
     st.markdown("---")
 
-    # 2. STEP 2: Pilih Station (SUB, CGK, PLM, dll)
+    # 2. STEP 2: Pilih Station (Ditampilkan berupa list ke bawah)
     st.subheader(f"2️⃣ Pilih Station / Lokasi ({selected_kategori})")
     stations_available = raw_data.get(selected_kategori, {})
 
     if stations_available:
         station_list = list(stations_available.keys())
-        selected_station = st.selectbox(
+        
+        # Diganti dari selectbox ke radio (list vertikal)
+        selected_station = st.radio(
             "Daftar Station Tersedia:",
             options=station_list
         )
@@ -79,4 +81,4 @@ if st.session_state["page"] == "landing":
                 st.session_state["page"] = "form_input"
                 st.rerun()
     else:
-        st.warning(f"⚠️ Belum ada station yang terdaftar untuk unit kerja {selected_kategori}.")
+        st.warning(f"⚠️ Belum ada divisi yang terdaftar untuk station {selected_kategori}.")
