@@ -21,7 +21,7 @@ DATA_STATION = {
     "SUB - Surabaya": ["Line Maintenance & Scheduled Maintenance", "GSE"],
     "KNO - Medan": ["Line Maintenance", "GSE"],
     "BTH - Batam": ["Line Maintenance", "GSE", "Warehouse", "Base Maintenance", "Shop"],
-    "MST - Jakarta": ["Warehouse", "Shop"},
+    "MST - Jakarta": ["Warehouse", "Shop"],
 }
 
 def convert_docx_to_pdf(docx_path, output_dir):
