@@ -89,9 +89,6 @@ elif st.session_state["page"] == "form_input":
     st.caption(f"Lokasi Audit: **{st.session_state['kategori']} - {st.session_state['station']}**")
 
     st.divider()
-
-    with st.expander("📌 Informasi Umum & Header Audit", expanded=True):
-    col1, col2 = st.columns(2)
     
     with col1:
         hari = st.selectbox("Hari Audit", HARI_LIST)
