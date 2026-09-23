@@ -16,11 +16,12 @@ st.set_page_config(
 # ---------------------------------------------------------
 # Lu bisa sesuaikan daftar station & unit kerja di bawah ini
 DATA_STATION = {
-    "PLM - Palembang": ["Line Maintenance", "GSE", "Store Warehouse"],
-    "CGK - Cengkareng": ["Line Maintenance", "Base Maintenance", "Tool Crib", "Store Warehouse"],
-    "SUB - Surabaya": ["Line Maintenance", "GSE", "Store Warehouse"],
-    "KNO - Medan": ["Line Maintenance", "Store Warehouse"],
-    "DPS - Denpasar": ["Line Maintenance", "GSE", "Store Warehouse"],
+    "PLM - Palembang": ["Line Maintenance", "GSE"],
+    "CGK - Cengkareng": ["Line Maintenance", "GSE"],
+    "SUB - Surabaya": ["Line Maintenance & Scheduled Maintenance", "GSE"],
+    "KNO - Medan": ["Line Maintenance", "GSE"],
+    "BTH - Batam": ["Line Maintenance", "GSE", "Warehouse", "Base Maintenance", "Shop"],
+    "MST - Jakarta": ["Warehouse", "Shop"},
 }
 
 def convert_docx_to_pdf(docx_path, output_dir):
