@@ -38,14 +38,6 @@ def terbilang(n):
         res = terbilang(n - 10) + " Belas"
     elif n < 100:
         res = terbilang(n // 10) + " Puluh " + terbilang(n % 10)
-    elif n < 200:
-        res = "Seratus " + terbilang(n - 100)
-    elif n < 1000:
-        res = terbilang(n // 100) + " Ratus " + terbilang(n % 100)
-    elif n < 2000:
-        res = "Seribu " + terbilang(n - 1000)
-    elif n < 1000000:
-        res = terbilang(n // 1000) + " Ribu " + terbilang(n % 1000)
     else:
         res = str(n)
     return " ".join(res.split())
@@ -260,17 +252,35 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
             st.error(f"❌ Gagal mengambil template dari Google Drive: {e}")
             st.stop()
 
-        # Context LENGKAP dengan Terbilang & Format Tanggal Simpel
+        # Ekstraksi lokasi unik dari tabel Serviceable
+        if "lokasi" in df_serviceable.columns and not df_serviceable["lokasi"].empty:
+            loc_s_list = df_serviceable["lokasi"].dropna().astype(str).str.strip().unique().tolist()
+            lokasi_serviceable_str = ", ".join([loc for loc in loc_s_list if loc])
+        else:
+            lokasi_serviceable_str = lokasi_bandara
+
+        # Ekstraksi lokasi unik dari tabel Unserviceable
+        if "lokasi" in df_unserviceable.columns and not df_unserviceable["lokasi"].empty:
+            loc_u_list = df_unserviceable["lokasi"].dropna().astype(str).str.strip().unique().tolist()
+            lokasi_unserviceable_str = ", ".join([loc for loc in loc_u_list if loc])
+        else:
+            lokasi_unserviceable_str = lokasi_bandara
+
+        # Context LENGKAP dengan Terbilang, Format Tanggal Simpel, & Lokasi Otomatis
         context = {
             # Metadata & Header
             "hari": hari,
             "tanggal": tanggal,
-            "tanggal_terbilang": terbilang(tanggal),  # Hasil: "Lima Belas"
+            "tanggal_terbilang": terbilang(tanggal),
             "bulan": bulan,
             "tahun": tahun,
-            "tahun_terbilang": terbilang(tahun),      # Hasil: "Dua Ribu Dua Puluh Enam"
+            "tahun_terbilang": terbilang(tahun),
             "lokasi": lokasi_bandara,
             "alamat": alamat,
+            
+            # Lokasi spesifik otomatis dari tabel
+            "lokasi_serviceable": lokasi_serviceable_str if lokasi_serviceable_str else lokasi_bandara,
+            "lokasi_unserviceable": lokasi_unserviceable_str if lokasi_unserviceable_str else lokasi_bandara,
             
             # Tanggal Audit Header (Format Simpel: "12 Februari 2026")
             "tgl_mulai": format_tgl_simpel(tgl_mulai_audit),
