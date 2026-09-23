@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 
 st.set_page_config(
     page_title="Generator BA Stock Opname",
@@ -7,77 +8,106 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# DATABASE / MAPPING TEMPLATE GOOGLE DRIVE (DINAMIS)
-# Tambah station/kategori baru di sini, menu akan otomatis update!
+# LINK WEB APP GOOGLE APPS SCRIPT
 # ---------------------------------------------------------
-TEMPLATE_CONFIG = {
-    "Line Maintenance": {
-        "PLM - Palembang (Sultan Mahmud Badaruddin II)": "1pqxqLCf-N6HxjXI7KZuRMikWEjiMIVlW",
-        "CGK - Jakarta (Soekarno-Hatta)": "FILE_ID_CGK_LM",
-        "SUB - Surabaya (Juanda)": "FILE_ID_SUB_LM",
-    },
-    "GSE": {
-        "PLM - Palembang (Sultan Mahmud Badaruddin II)": "FILE_ID_PLM_GSE",
-        "CGK - Jakarta (Soekarno-Hatta)": "FILE_ID_CGK_GSE",
-    },
-    "Warehouse": {
-        "Central Warehouse BSM01": "FILE_ID_WAREHOUSE_BSM01",
-        "Warehouse K200": "FILE_ID_WAREHOUSE_K200",
-    },
-    "Shop": {
-        "Avionics Shop": "FILE_ID_SHOP_AVIONICS",
-    }
-}
+GAS_URL = "https://script.google.com/macros/s/AKfycbw3wvEcbiN44YSoSZ97ZiGVKRPT1uq-ZYvCnhmlZ7mJFxrjGjGcwHbxxlIXUj44PTL7OQ/exec"
+
+@st.cache_data(ttl=60) # Auto refresh tiap 60 detik jika ada folder baru di Drive
+def fetch_drive_data():
+    try:
+        response = requests.get(GAS_URL, timeout=10)
+        return response.json()
+    except Exception as e:
+        st.error(f"Gagal mengambil data dari Drive: {e}")
+        return {}
+
+# Inisialisasi Session State
+if "page" not in st.session_state:
+    st.session_state["page"] = "landing"
 
 # ---------------------------------------------------------
-# LANDING PAGE UI
+# PAGE 1: LANDING PAGE
 # ---------------------------------------------------------
-st.title("📋 Generator Berita Acara Stock Opname")
-st.write("Pilih unit kerja dan station lokasi audit untuk memuat template Berita Acara yang sesuai.")
+if st.session_state["page"] == "landing":
+    st.title("📋 Generator Berita Acara Stock Opname")
+    st.write("Pilih unit kerja dan station lokasi audit untuk memuat template Berita Acara yang sesuai.")
 
-st.divider()
-
-# Step 1: Pilih Unit Kerja
-st.subheader("1️⃣ Pilih Unit Kerja")
-kategori_list = list(TEMPLATE_CONFIG.keys())
-selected_kategori = st.radio(
-    "Unit Kerja:",
-    options=kategori_list,
-    horizontal=True,
-    index=0
-)
-
-st.markdown("---")
-
-# Step 2: Pilih Station berdasarkan Unit Kerja yang dipilih
-st.subheader(f"2️⃣ Pilih Station / Lokasi ({selected_kategori})")
-
-stations_available = TEMPLATE_CONFIG.get(selected_kategori, {})
-
-if stations_available:
-    station_list = list(stations_available.keys())
-    selected_station = st.selectbox(
-        "Daftar Station Tersedia:",
-        options=station_list
-    )
-    
-    # Ambil File ID Drive otomatis
-    file_id_template = stations_available[selected_station]
-    
-    st.info(f"📌 **Template Terhubung:** `{selected_station}`\n\n🆔 **Drive File ID:** `{file_id_template}`")
-    
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        if st.button("➡️ Lanjut ke Form Audit", type="primary", use_container_width=True):
-            st.session_state["kategori"] = selected_kategori
-            st.session_state["station"] = selected_station
-            st.session_state["file_id"] = file_id_template
-            st.session_state["page"] = "form_input"
-            st.rerun()
-else:
-    st.warning("⚠️ Belum ada template station yang terdaftar untuk unit kerja ini.")
-
-# Visualisasi jika sudah berpindah halaman (state management)
-if st.session_state.get("page") == "form_input":
     st.divider()
-    st.success(f"🎯 Kamu masuk ke halaman input form untuk **{st.session_state['kategori']} - {st.session_state['station']}**")
+
+    # Load data otomatis via HTTP Request biasa
+    with st.spinner("Memuat struktur template dari Google Drive..."):
+        template_config = fetch_drive_data()
+
+    if not template_config:
+        st.warning("⚠️ Data folder belum dimuat atau folder di Google Drive masih kosong.")
+        st.stop()
+
+    # Step 1: Pilih Unit Kerja / Kategori
+    st.subheader("1️⃣ Pilih Unit Kerja")
+    kategori_list = list(template_config.keys())
+    selected_kategori = st.radio(
+        "Unit Kerja:",
+        options=kategori_list,
+        horizontal=True,
+        index=0
+    )
+
+    st.markdown("---")
+
+    # Step 2: Pilih Station
+    st.subheader(f"2️⃣ Pilih Station / Lokasi ({selected_kategori})")
+    stations_available = template_config.get(selected_kategori, {})
+
+    if stations_available:
+        station_list = list(stations_available.keys())
+        selected_station = st.selectbox(
+            "Daftar Station Tersedia:",
+            options=station_list
+        )
+
+        station_info = stations_available[selected_station]
+
+        st.info(f"📌 **Template Terhubung:** `{station_info['file_name']}`\n\n🆔 **Drive File ID:** `{station_info['file_id']}`")
+
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("➡️ Lanjut ke Form Audit", type="primary", use_container_width=True):
+                st.session_state["kategori"] = selected_kategori
+                st.session_state["station"] = selected_station
+                st.session_state["file_id"] = station_info['file_id']
+                st.session_state["web_link"] = station_info['web_link']
+                st.session_state["page"] = "form_input"
+                st.rerun()
+    else:
+        st.warning("⚠️ Belum ada folder station untuk unit kerja ini di Drive.")
+
+# ---------------------------------------------------------
+# PAGE 2: FORM INPUT AUDIT
+# ---------------------------------------------------------
+elif st.session_state["page"] == "form_input":
+    st.title("📝 Form Input Berita Acara")
+    st.caption(f"Lokasi Audit: **{st.session_state['kategori']} - {st.session_state['station']}**")
+
+    st.divider()
+
+    with st.form("audit_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            nomor_ba = st.text_input("Nomor Berita Acara", placeholder="Contoh: BA/SO/CGK/2026/001")
+            auditor = st.text_input("Nama Auditor", placeholder="Nama Lengkap")
+        with col2:
+            tanggal = st.date_input("Tanggal Audit")
+            warehouse = st.text_input("Kode Warehouse / Sub-lokasi", placeholder="Contoh: K200 / K191 / BSM01")
+
+        catatan = st.text_area("Catatan Discrepancy / Temuan Audit", placeholder="Ringkasan hasil audit...")
+
+        st.markdown("---")
+        submit_btn = st.form_submit_button("🚀 Submit Data", type="primary")
+
+    if submit_btn:
+        st.success("✅ Data berhasil tersimpan!")
+        st.markdown(f"👉 [Buka File Template di Google Drive]({st.session_state['web_link']})")
+
+    if st.button("⬅️ Kembali Pilih Station"):
+        st.session_state["page"] = "landing"
+        st.rerun()
