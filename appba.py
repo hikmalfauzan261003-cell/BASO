@@ -20,7 +20,7 @@ st.write("Isi formulir di bawah ini untuk menghasilkan dokumen Berita Acara seca
 st.divider()
 
 # ---------------------------------------------------------
-# HELPER FORMAT TANGGAL BAHASA INDONESIA
+# HELPER TERBILANG & FORMAT TANGGAL
 # ---------------------------------------------------------
 HARI_LIST = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
 BULAN_LIST = [
@@ -28,8 +28,41 @@ BULAN_LIST = [
     "Juli", "Agustus", "September", "Oktober", "November", "Desember"
 ]
 
+def terbilang(n):
+    """Mengubah angka menjadi kata-kata Bahasa Indonesia (contoh: 15 -> 'Lima Belas')."""
+    satuan = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"]
+    n = int(n)
+    if n < 12:
+        res = satuan[n]
+    elif n < 20:
+        res = terbilang(n - 10) + " Belas"
+    elif n < 100:
+        res = terbilang(n // 10) + " Puluh " + terbilang(n % 10)
+    elif n < 200:
+        res = "Seratus " + terbilang(n - 100)
+    elif n < 1000:
+        res = terbilang(n // 100) + " Ratus " + terbilang(n % 100)
+    elif n < 2000:
+        res = "Seribu " + terbilang(n - 1000)
+    elif n < 1000000:
+        res = terbilang(n // 1000) + " Ribu " + terbilang(n % 1000)
+    else:
+        res = str(n)
+    return " ".join(res.split())
+
+def format_tgl_simpel(dt):
+    """Format tanggal simpel (contoh: '18 Agustus 2026')."""
+    if dt is None:
+        return ""
+    if isinstance(dt, str):
+        try:
+            dt = pd.to_datetime(dt).date()
+        except Exception:
+            return dt
+    return f"{dt.day} {BULAN_LIST[dt.month - 1]} {dt.year}"
+
 def format_indo_date(dt):
-    """Format tanggal ke Bahasa Indonesia (contoh: 'Rabu, 18 Februari 2026')."""
+    """Format tanggal lengkap dengan nama hari (contoh: 'Rabu, 18 Februari 2026')."""
     if dt is None:
         return ""
     if isinstance(dt, str):
@@ -38,10 +71,7 @@ def format_indo_date(dt):
         except Exception:
             return dt
     hari = HARI_LIST[dt.weekday()]
-    tgl = dt.day
-    bln = BULAN_LIST[dt.month - 1]
-    thn = dt.year
-    return f"{hari}, {tgl} {bln} {thn}"
+    return f"{hari}, {format_tgl_simpel(dt)}"
 
 # ---------------------------------------------------------
 # TEMPLATE MASTER GOOGLE DRIVE
@@ -142,9 +172,8 @@ with tab4:
 
 with tab5:
     st.markdown("**Rekomendasi & Timeframe Pelaksanaan**")
-    st.info(f"💡 Tanggal Mulai secara otomatis mengambil dari **Tanggal Selesai Audit ({tgl_selesai_audit.strftime('%d-%m-%Y')})**.")
+    st.info(f"💡 Tanggal Mulai secara otomatis mengambil dari **Tanggal Selesai Audit ({format_tgl_simpel(tgl_selesai_audit)})**.")
 
-    # Input durasi oleh user
     df_rekom_input = st.data_editor(
         pd.DataFrame([
             {"no": 1, "subject": "Not Found", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi_hari": 3},
@@ -161,9 +190,6 @@ with tab5:
         }
     )
 
-    # ---------------------------------------------------------
-    # PERHITUNGAN OTOMATIS & TAMPILAN TABEL TERISI
-    # ---------------------------------------------------------
     rows_rekomendasi_processed = []
     for idx, row in df_rekom_input.iterrows():
         try:
@@ -177,25 +203,14 @@ with tab5:
         row_dict = row.to_dict()
         row_dict["no"] = row.get("no", idx + 1)
         row_dict["subject"] = row.get("subject", "")
-        row_dict["subjek"] = row.get("subject", "")
         row_dict["rekomendasi"] = row.get("rekomendasi", "")
         row_dict["durasi"] = f"{dur} Hari"
         row_dict["durasi_hari"] = dur
         
-        # Format variasi nama tanggal untuk Word
-        row_dict["tgl_mulai"] = dt_start.strftime("%d-%m-%Y")
-        row_dict["tgl_selesai"] = dt_end.strftime("%d-%m-%Y")
-        row_dict["tgl_mulai_str"] = dt_start.strftime("%d-%m-%Y")
-        row_dict["tgl_selesai_str"] = dt_end.strftime("%d-%m-%Y")
-        row_dict["tanggal_mulai"] = dt_start.strftime("%d-%m-%Y")
-        row_dict["tanggal_selesai"] = dt_end.strftime("%d-%m-%Y")
-        
-        row_dict["tgl_mulai_indo"] = format_indo_date(dt_start)
-        row_dict["tgl_selesai_indo"] = format_indo_date(dt_end)
-        
-        row_dict["timeframe"] = f"{dt_start.strftime('%d-%m-%Y')} s/d {dt_end.strftime('%d-%m-%Y')}"
-        row_dict["rentang_tanggal"] = f"{dt_start.strftime('%d-%m-%Y')} s/d {dt_end.strftime('%d-%m-%Y')}"
-        row_dict["target_date"] = format_indo_date(dt_end)
+        # Tanggal simpel untuk tabel
+        row_dict["tgl_mulai"] = format_tgl_simpel(dt_start)
+        row_dict["tgl_selesai"] = format_tgl_simpel(dt_end)
+        row_dict["timeframe"] = f"{format_tgl_simpel(dt_start)} s/d {format_tgl_simpel(dt_end)}"
         
         rows_rekomendasi_processed.append(row_dict)
 
@@ -245,39 +260,31 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
             st.error(f"❌ Gagal mengambil template dari Google Drive: {e}")
             st.stop()
 
-        # Context LENGKAP dengan multi-alias nama variabel
+        # Context LENGKAP dengan Terbilang & Format Tanggal Simpel
         context = {
             # Metadata & Header
             "hari": hari,
             "tanggal": tanggal,
-            "tgl": tanggal,
+            "tanggal_terbilang": terbilang(tanggal),  # Hasil: "Lima Belas"
             "bulan": bulan,
             "tahun": tahun,
-            "thn": tahun,
+            "tahun_terbilang": terbilang(tahun),      # Hasil: "Dua Ribu Dua Puluh Enam"
             "lokasi": lokasi_bandara,
-            "lokasi_bandara": lokasi_bandara,
-            "bandara": lokasi_bandara,
             "alamat": alamat,
             
-            # Tanggal Audit Header
-            "tgl_mulai": tgl_mulai_audit.strftime("%d-%m-%Y"),
-            "tgl_selesai": tgl_selesai_audit.strftime("%d-%m-%Y"),
-            "tanggal_mulai": tgl_mulai_audit.strftime("%d-%m-%Y"),
-            "tanggal_selesai": tgl_selesai_audit.strftime("%d-%m-%Y"),
-            "tgl_mulai_indo": format_indo_date(tgl_mulai_audit),
-            "tgl_selesai_indo": format_indo_date(tgl_selesai_audit),
+            # Tanggal Audit Header (Format Simpel: "12 Februari 2026")
+            "tgl_mulai": format_tgl_simpel(tgl_mulai_audit),
+            "tgl_selesai": format_tgl_simpel(tgl_selesai_audit),
             
             # Penanggung Jawab & Auditor
             "audit_aset": audit_aset,
-            "nama_auditor": audit_aset,
             "pic_lm": pic_lm,
-            "nama_pic_lm": pic_lm,
             "bulan_lalu": bulan_lalu,
             "pj_store_lalu": pj_store_lalu,
             "bulan_ini": bulan_ini,
             "pj_store_ini": pj_store_ini,
             
-            # Tabel-tabel
+            # Data Tabel
             "rows_serviceable": df_serviceable.to_dict('records'),
             "rows_unserviceable": df_unserviceable.to_dict('records'),
             "rows_unrecorded": df_unrecorded.to_dict('records'),
