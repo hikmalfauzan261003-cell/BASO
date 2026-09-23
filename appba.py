@@ -26,15 +26,15 @@ if "page" not in st.session_state:
     st.session_state["page"] = "landing"
 
 # ---------------------------------------------------------
-# PAGE 1: LANDING PAGE
+# PAGE 1: LANDING PAGE (URUTAN: STATION -> UNIT KERJA)
 # ---------------------------------------------------------
 if st.session_state["page"] == "landing":
     st.title("📋 Generator Berita Acara Stock Opname")
-    st.write("Pilih unit kerja dan station lokasi audit untuk memuat template Berita Acara yang sesuai.")
+    st.write("Pilih station lokasi audit dan unit kerja untuk memuat template Berita Acara yang sesuai.")
 
     st.divider()
 
-    # Load data otomatis via HTTP Request biasa
+    # Load data otomatis via HTTP Request
     with st.spinner("Memuat struktur template dari Google Drive..."):
         template_config = fetch_drive_data()
 
@@ -42,7 +42,20 @@ if st.session_state["page"] == "landing":
         st.warning("⚠️ Data folder belum dimuat atau folder di Google Drive masih kosong.")
         st.stop()
 
- # Step 1: Pilih Station / Lokasi
+    # 1. RE-MAP DATA: Ubah dari {Unit: {Station: Info}} menjadi {Station: {Unit: Info}}
+    station_config = {}
+    for unit_name, stations in template_config.items():
+        if isinstance(stations, dict):
+            for station_name, info in stations.items():
+                if station_name not in station_config:
+                    station_config[station_name] = {}
+                station_config[station_name][unit_name] = info
+
+    if not station_config:
+        st.warning("⚠️ Format data template dari Google Drive tidak sesuai atau kosong.")
+        st.stop()
+
+    # 2. STEP 1: Pilih Station / Lokasi Bandara
     st.subheader("1️⃣ Pilih Station / Lokasi Bandara")
     all_stations = list(station_config.keys())
     selected_station = st.selectbox(
@@ -52,7 +65,7 @@ if st.session_state["page"] == "landing":
 
     st.markdown("---")
 
-    # Step 2: Pilih Unit Kerja berdasarkan Station yang dipilih
+    # 3. STEP 2: Pilih Unit Kerja berdasarkan Station
     st.subheader(f"2️⃣ Pilih Unit Kerja di {selected_station}")
     units_available = station_config.get(selected_station, {})
 
