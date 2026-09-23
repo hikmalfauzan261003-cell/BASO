@@ -3,7 +3,7 @@ import io
 import requests
 import subprocess
 import tempfile
-from datetime import timedelta
+from datetime import timedelta, date
 import pandas as pd
 import streamlit as st
 from docxtpl import DocxTemplate
@@ -29,7 +29,11 @@ BULAN_LIST = [
 ]
 
 def format_indo_date(dt):
-    """Format tanggal ke Bahasa Indonesia (contoh: 'Senin, 18 Februari 2026')."""
+    """Format tanggal ke Bahasa Indonesia (contoh: 'Rabu, 18 Februari 2026')."""
+    if dt is None:
+        return ""
+    if isinstance(dt, str):
+        dt = pd.to_datetime(dt).date()
     hari = HARI_LIST[dt.weekday()]
     tgl = dt.day
     bln = BULAN_LIST[dt.month - 1]
@@ -141,24 +145,45 @@ with tab4:
 
 with tab5:
     st.markdown("**Rekomendasi & Timeframe Pelaksanaan**")
-    st.caption("ℹ️ Tanggal target penyelesaian akan dihitung otomatis dari Tanggal Selesai Audit berdasarkan durasi hari.")
+    st.caption("📅 Anda dapat memilih Tanggal Mulai dan Tanggal Selesai untuk setiap rekomendasi menggunakan kalender interaktif.")
+    
+    # Default tanggal acuan berdasarkan Tanggal Selesai Audit
+    default_start = tgl_selesai
+    
     df_rekomendasi = st.data_editor(
         pd.DataFrame([
-            {"no": 1, "subject": "Not Found", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi_hari": 3},
-            {"no": 2, "subject": "Unrecord Parts", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi_hari": 2},
+            {
+                "no": 1, 
+                "subject": "Not Found", 
+                "rekomendasi": "Pemeriksaan ulang fisik & eMRO", 
+                "tgl_mulai": default_start,
+                "tgl_selesai": default_start + timedelta(days=3)
+            },
+            {
+                "no": 2, 
+                "subject": "Unrecord Parts", 
+                "rekomendasi": "Pemeriksaan ulang fisik & eMRO", 
+                "tgl_mulai": default_start,
+                "tgl_selesai": default_start + timedelta(days=2)
+            },
         ]),
         num_rows="dynamic",
         key="editor_rekomendasi",
         use_container_width=True,
         column_config={
-            "durasi_hari": st.column_config.NumberColumn(
-                "Durasi (Hari)",
-                help="Jumlah hari pelaksanaan rekomendasi",
-                min_value=1,
-                max_value=60,
-                step=1,
-                format="%d Hari"
-            )
+            "no": st.column_config.NumberColumn("No", width="small"),
+            "subject": st.column_config.TextColumn("Subjek / Masalah"),
+            "rekomendasi": st.column_config.TextColumn("Rekomendasi"),
+            "tgl_mulai": st.column_config.DateColumn(
+                "Tanggal Mulai",
+                format="DD/MM/YYYY",
+                help="Klik untuk memilih tanggal mulai"
+            ),
+            "tgl_selesai": st.column_config.DateColumn(
+                "Tanggal Selesai",
+                format="DD/MM/YYYY",
+                help="Klik untuk memilih tanggal selesai"
+            ),
         }
     )
 
@@ -192,24 +217,42 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
             st.info("Pastikan file di Google Drive sudah di-set 'Anyone with the link' / 'Siapa saja yang memiliki link'!")
             st.stop()
 
-        # Proses otomatisasi tanggal timeframe rekomendasi
+        # Proses pembuatan format rentang tanggal untuk setiap baris rekomendasi
         rows_rekomendasi_processed = []
         for idx, row in df_rekomendasi.iterrows():
             row_dict = row.to_dict()
-            try:
-                durasi = int(row_dict.get("durasi_hari", 1))
-            except (ValueError, TypeError):
-                durasi = 1
-                
-            start_tf = tgl_selesai
-            end_tf = tgl_selesai + timedelta(days=durasi)
             
-            # Field siap pakai untuk dimasukkan ke template Word
-            row_dict["durasi"] = f"{durasi} Hari"
-            row_dict["tgl_mulai_tf"] = start_tf.strftime("%d-%m-%Y")
-            row_dict["tgl_selesai_tf"] = end_tf.strftime("%d-%m-%Y")
-            row_dict["target_date"] = format_indo_date(end_tf)
-            row_dict["timeframe"] = f"{format_indo_date(start_tf)} s/d {format_indo_date(end_tf)}"
+            # Parsing tanggal mulai
+            val_start = row_dict.get("tgl_mulai")
+            if pd.isna(val_start) or val_start is None:
+                dt_start = tgl_selesai
+            else:
+                dt_start = pd.to_datetime(val_start).date()
+
+            # Parsing tanggal selesai
+            val_end = row_dict.get("tgl_selesai")
+            if pd.isna(val_end) or val_end is None:
+                dt_end = dt_start + timedelta(days=1)
+            else:
+                dt_end = pd.to_datetime(val_end).date()
+
+            # Hitung selisih hari otomatis
+            durasi_hari = (dt_end - dt_start).days
+            if durasi_hari < 0:
+                durasi_hari = 0
+
+            # Variabel yang siap digunakan di template Word (.docx)
+            row_dict["durasi"] = f"{durasi_hari} Hari"
+            row_dict["tgl_mulai_str"] = dt_start.strftime("%d-%m-%Y")
+            row_dict["tgl_selesai_str"] = dt_end.strftime("%d-%m-%Y")
+            row_dict["tgl_mulai_indo"] = format_indo_date(dt_start)
+            row_dict["tgl_selesai_indo"] = format_indo_date(dt_end)
+            
+            # Contoh hasil: "15-02-2026 s/d 18-02-2026"
+            row_dict["rentang_tanggal"] = f"{dt_start.strftime('%d-%m-%Y')} s/d {dt_end.strftime('%d-%m-%Y')}"
+            
+            # Contoh hasil: "Minggu, 15 Februari 2026 s/d Rabu, 18 Februari 2026"
+            row_dict["rentang_tanggal_indo"] = f"{format_indo_date(dt_start)} s/d {format_indo_date(dt_end)}"
             
             rows_rekomendasi_processed.append(row_dict)
 
