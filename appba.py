@@ -26,7 +26,7 @@ if "page" not in st.session_state:
     st.session_state["page"] = "landing"
 
 # ---------------------------------------------------------
-# PAGE 1: LANDING PAGE (URUTAN: STATION -> UNIT KERJA)
+# PAGE 1: LANDING PAGE
 # ---------------------------------------------------------
 if st.session_state["page"] == "landing":
     st.title("📋 Generator Berita Acara Stock Opname")
@@ -36,49 +36,36 @@ if st.session_state["page"] == "landing":
 
     # Load data otomatis via HTTP Request
     with st.spinner("Memuat struktur template dari Google Drive..."):
-        template_config = fetch_drive_data()
+        raw_data = fetch_drive_data()
 
-    if not template_config:
+    if not raw_data:
         st.warning("⚠️ Data folder belum dimuat atau folder di Google Drive masih kosong.")
         st.stop()
 
-    # 1. RE-MAP DATA: Ubah dari {Unit: {Station: Info}} menjadi {Station: {Unit: Info}}
-    station_config = {}
-    for unit_name, stations in template_config.items():
-        if isinstance(stations, dict):
-            for station_name, info in stations.items():
-                if station_name not in station_config:
-                    station_config[station_name] = {}
-                station_config[station_name][unit_name] = info
-
-    if not station_config:
-        st.warning("⚠️ Format data template dari Google Drive tidak sesuai atau kosong.")
-        st.stop()
-
-    # 2. STEP 1: Pilih Station / Lokasi Bandara
-    st.subheader("1️⃣ Pilih Station / Lokasi Bandara")
-    all_stations = list(station_config.keys())
-    selected_station = st.selectbox(
-        "Daftar Station Tersedia:",
-        options=all_stations
+    # 1. STEP 1: Pilih Unit Kerja (Line Maintenance, GSE, Warehouse, Shop)
+    st.subheader("1️⃣ Pilih Unit Kerja")
+    unit_list = list(raw_data.keys())
+    selected_kategori = st.radio(
+        "Unit Kerja Tersedia:",
+        options=unit_list,
+        horizontal=True,
+        index=0
     )
 
     st.markdown("---")
 
-    # 3. STEP 2: Pilih Unit Kerja berdasarkan Station
-    st.subheader(f"2️⃣ Pilih Unit Kerja di {selected_station}")
-    units_available = station_config.get(selected_station, {})
+    # 2. STEP 2: Pilih Station (SUB, CGK, PLM, dll)
+    st.subheader(f"2️⃣ Pilih Station / Lokasi ({selected_kategori})")
+    stations_available = raw_data.get(selected_kategori, {})
 
-    if units_available:
-        unit_list = list(units_available.keys())
-        selected_kategori = st.radio(
-            "Unit Kerja Tersedia:",
-            options=unit_list,
-            horizontal=True,
-            index=0
+    if stations_available:
+        station_list = list(stations_available.keys())
+        selected_station = st.selectbox(
+            "Daftar Station Tersedia:",
+            options=station_list
         )
 
-        station_info = units_available[selected_kategori]
+        station_info = stations_available[selected_station]
 
         st.info(f"📌 **Template Terhubung:** `{station_info['file_name']}`\n\n🆔 **Drive File ID:** `{station_info['file_id']}`")
 
@@ -92,4 +79,4 @@ if st.session_state["page"] == "landing":
                 st.session_state["page"] = "form_input"
                 st.rerun()
     else:
-        st.warning("⚠️ Belum ada unit kerja yang terdaftar untuk station ini.")
+        st.warning(f"⚠️ Belum ada station yang terdaftar untuk unit kerja {selected_kategori}.")
