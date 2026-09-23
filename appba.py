@@ -195,23 +195,22 @@ elif st.session_state["page"] == "form_input":
         else:
             with st.spinner("Menyusun Berita Acara..."):
                 doc = DocxTemplate(template_path)
-
                 context = {
-                    "hari": hari,
-                    "tanggal": tanggal,
-                    "bulan": bulan,
-                    "tahun": tahun,
-                    "lokasi": lokasi_bandara,
-                    "alamat": alamat,
-                    "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
-                    "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
-                    "pj_store": pj_store,
-                    "audit_aset": audit_aset,
-                    "pic_lm": pic_lm,
-                    "station": st.session_state.get("station", ""),
-                    "unit_kerja": st.session_state.get("kategori", ""),
-                    
-                    # Data Tabel
+                    "hari": str(hari).upper(),
+                    "tanggal": str(tanggal).upper(),
+                    "bulan": str(bulan).upper(),
+                    "tahun": str(tahun).upper(),
+                    "lokasi_bandara": str(lokasi_bandara).upper(),
+                    "alamat": str(alamat).upper(),
+                    "tgl_mulai_audit": tgl_mulai.strftime("%d %B %Y").upper(),
+                    "tgl_selesai_audit": tgl_selesai.strftime("%d %B %Y").upper(),
+                    "pj_store": str(pj_store).upper(),
+                    "audit_aset": str(audit_aset).upper(),
+                    "pic_lm": str(pic_lm).upper(),
+                    "station": str(st.session_state.get("station", "")).upper(),
+                    "unit_kerja": str(st.session_state.get("kategori", "")).upper(),
+    
+                # Data Tabel
                     "rows_serviceable": df_serviceable.to_dict('records'),
                     "rows_unserviceable": df_unserviceable.to_dict('records'),
                     "rows_unrecorded": df_unrecorded.to_dict('records'),
