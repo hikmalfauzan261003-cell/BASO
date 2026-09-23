@@ -1,5 +1,9 @@
+import os
+import tempfile
+import subprocess
+import pandas as pd
 import streamlit as st
-import requests
+from docxtpl import DocxTemplate
 
 st.set_page_config(
     page_title="Generator BA Stock Opname",
@@ -8,75 +12,247 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# LINK WEB APP GOOGLE APPS SCRIPT
+# DATA STATION & UNIT KERJA (LOKAL)
 # ---------------------------------------------------------
-GAS_URL = "https://script.google.com/macros/s/AKfycbw3wvEcbiN44YSoSZ97ZiGVKRPT1uq-ZYvCnhmlZ7mJFxrjGjGcwHbxxlIXUj44PTL7OQ/exec"
+# Lu bisa sesuaikan daftar station & unit kerja di bawah ini
+DATA_STATION = {
+    "PLM - Palembang": ["Line Maintenance", "GSE", "Store Warehouse"],
+    "CGK - Cengkareng": ["Line Maintenance", "Base Maintenance", "Tool Crib", "Store Warehouse"],
+    "SUB - Surabaya": ["Line Maintenance", "GSE", "Store Warehouse"],
+    "KNO - Medan": ["Line Maintenance", "Store Warehouse"],
+    "DPS - Denpasar": ["Line Maintenance", "GSE", "Store Warehouse"],
+}
 
-@st.cache_data(ttl=60) # Auto refresh tiap 60 detik jika ada folder baru di Drive
-def fetch_drive_data():
+def convert_docx_to_pdf(docx_path, output_dir):
+    """Mengonversi dokumen DOCX ke PDF menggunakan LibreOffice."""
     try:
-        response = requests.get(GAS_URL, timeout=10)
-        return response.json()
+        subprocess.run([
+            "soffice", "--headless", "--convert-to", "pdf",
+            docx_path, "--outdir", output_dir
+        ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        pdf_filename = os.path.basename(docx_path).replace(".docx", ".pdf")
+        return os.path.join(output_dir, pdf_filename)
     except Exception as e:
-        st.error(f"Gagal mengambil data dari Drive: {e}")
-        return {}
+        return None
 
-# Inisialisasi Session State
+# Inisialisasi Session State Halaman
 if "page" not in st.session_state:
     st.session_state["page"] = "landing"
 
-# ---------------------------------------------------------
-# PAGE 1: LANDING PAGE
-# ---------------------------------------------------------
+# =========================================================
+# PAGE 1: LANDING PAGE (SELEKSI STATION & UNIT KERJA)
+# =========================================================
 if st.session_state["page"] == "landing":
     st.title("📋 Generator Berita Acara Stock Opname")
-    st.write("Pilih station lokasi audit dan unit kerja untuk memuat template Berita Acara yang sesuai.")
+    st.write("Pilih station lokasi audit dan unit kerja untuk memulai pembuatan Berita Acara.")
 
     st.divider()
 
-    # Load data otomatis via HTTP Request
-    with st.spinner("Memuat struktur template dari Google Drive..."):
-        raw_data = fetch_drive_data()
-
-    if not raw_data:
-        st.warning("⚠️ Data folder belum dimuat atau folder di Google Drive masih kosong.")
-        st.stop()
-
-    # 1. STEP 1: Pilih Station dulu pake Selectbox (Dropdown)
+    # 1. STEP 1: Pilih Station
     st.subheader("1️⃣ Pilih Station / Lokasi Bandara")
-    station_list = sorted(list(raw_data.keys()))
     selected_station = st.selectbox(
         "Daftar Station Tersedia:",
-        options=station_list
+        options=list(DATA_STATION.keys())
     )
 
     st.markdown("---")
 
-    # 2. STEP 2: Pilih Unit Kerja di Station Tersebut pake Radio Button
+    # 2. STEP 2: Pilih Unit Kerja
     st.subheader(f"2️⃣ Pilih Unit Kerja di {selected_station}")
-    units_available = raw_data.get(selected_station, {})
+    unit_list = DATA_STATION.get(selected_station, [])
 
-    if units_available:
-        unit_list = list(units_available.keys())
-        selected_kategori = st.radio(
-            "Unit Kerja Tersedia:",
-            options=unit_list,
-            horizontal=True,
-            index=0
+    selected_kategori = st.radio(
+        "Unit Kerja Tersedia:",
+        options=unit_list,
+        horizontal=True,
+        index=0
+    )
+
+    st.success(f"📍 Terpilih: **{selected_station}** — **{selected_kategori}**")
+
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("➡️ Lanjut ke Form Audit", type="primary", use_container_width=True):
+            st.session_state["station"] = selected_station
+            st.session_state["kategori"] = selected_kategori
+            st.session_state["page"] = "form_input"
+            st.rerun()
+
+# =========================================================
+# PAGE 2: FORM INPUT AUDIT & DOKUMEN GENERATOR
+# =========================================================
+elif st.session_state["page"] == "form_input":
+    # Header Navigasi Halaman
+    col_nav1, col_nav2 = st.columns([1, 5])
+    with col_nav1:
+        if st.button("⬅️ Kembali", use_container_width=True):
+            st.session_state["page"] = "landing"
+            st.rerun()
+
+    st.title("📝 Form Data Stock Opname")
+    st.caption(f"📍 **Station:** `{st.session_state.get('station', '-')}` | 🏭 **Unit Kerja:** `{st.session_state.get('kategori', '-')}`")
+    st.divider()
+
+    # ---------------------------------------------------------
+    # 1. FORM INPUT HEADER & METADATA
+    # ---------------------------------------------------------
+    with st.expander("📌 Informasi Umum & Header Audit", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            hari = st.selectbox("Hari Audit", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"])
+            tanggal = st.number_input("Tanggal", min_value=1, max_value=31, value=15)
+            bulan = st.selectbox("Bulan", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+            tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
+            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', 'PLM'))
+            alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
+
+        with col2:
+            tgl_mulai = st.date_input("Tanggal Mulai Audit")
+            tgl_selesai = st.date_input("Tanggal Selesai Audit")
+            pj_store = st.text_input("Penanggung Jawab Store LM", "Nama PJ Store")
+            audit_aset = st.text_input("Nama Pelaksana Audit Aset", "Nama Auditor Aset")
+            pic_lm = st.text_input("Nama PIC Line Maintenance", "Nama PIC LM")
+
+    # ---------------------------------------------------------
+    # 2. INPUT TABEL DATA (EDITABLE TABLES)
+    # ---------------------------------------------------------
+    st.subheader("📊 Rekapitulasi Data Audit")
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "1. Serviceable Area",
+        "2. Unserviceable Area",
+        "3. Unrecorded Parts",
+        "4. Facility Check",
+        "5. Rekomendasi & Timeframe"
+    ])
+
+    with tab1:
+        st.markdown("**Hasil pemeriksaan Part Aircraft, General, Chemical, dan Tools di Serviceable Area**")
+        df_serviceable = st.data_editor(
+            pd.DataFrame([
+                {"no": 1, "lokasi": "Rack A1", "deskripsi": "Aircraft Part Serviceable", "batch": "10", "jumlah": "50", "match": "48", "not_match": "2", "akurasi": "96%"},
+            ]),
+            num_rows="dynamic",
+            key="editor_serviceable",
+            use_container_width=True
         )
 
-        station_info = units_available[selected_kategori]
+    with tab2:
+        st.markdown("**Hasil pemeriksaan Aircraft Part di Unserviceable Area**")
+        df_unserviceable = st.data_editor(
+            pd.DataFrame([
+                {"no": 1, "lokasi": "Scrap Area", "deskripsi": "Aircraft Part Unserviceable", "batch": "2", "jumlah": "5", "match": "5", "not_match": "0", "akurasi": "100%"},
+            ]),
+            num_rows="dynamic",
+            key="editor_unserviceable",
+            use_container_width=True
+        )
 
-        st.info(f"📌 **Template Terhubung:** `{station_info['file_name']}`\n\n🆔 **Drive File ID:** `{station_info['file_id']}`")
+    with tab3:
+        st.markdown("**Tabel UNRECORDED Parts**")
+        df_unrecorded = st.data_editor(
+            pd.DataFrame([
+                {"no": 1, "lokasi": "Bin Store 3", "deskripsi": "Unrecorded Seal Ring", "jumlah": "10"},
+            ]),
+            num_rows="dynamic",
+            key="editor_unrecorded",
+            use_container_width=True
+        )
 
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            if st.button("➡️ Lanjut ke Form Audit", type="primary", use_container_width=True):
-                st.session_state["kategori"] = selected_kategori
-                st.session_state["station"] = selected_station
-                st.session_state["file_id"] = station_info['file_id']
-                st.session_state["web_link"] = station_info['web_link']
-                st.session_state["page"] = "form_input"
-                st.rerun()
-    else:
-        st.warning(f"⚠️ Belum ada unit kerja yang terdaftar untuk station {selected_station}.")
+    with tab4:
+        st.markdown("**Pemeriksaan Fasilitas Store LM/GSE**")
+        df_facility = st.data_editor(
+            pd.DataFrame([
+                {"no": 1, "lokasi": "Main Room Store", "deskripsi": "Area Utama", "humidity": "Kondisi Baik", "cctv": "Aktif", "firex": "Ready", "finger_access": "Aktif"},
+            ]),
+            num_rows="dynamic",
+            key="editor_facility",
+            use_container_width=True
+        )
+
+    with tab5:
+        st.markdown("**Rekomendasi & Timeframe Pelaksanaan**")
+        df_rekomendasi = st.data_editor(
+            pd.DataFrame([
+                {"no": 1, "subject": "Not Found", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi": "3 Hari"},
+                {"no": 2, "subject": "Unrecord Parts", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi": "2 Hari"},
+            ]),
+            num_rows="dynamic",
+            key="editor_rekomendasi",
+            use_container_width=True
+        )
+
+    # ---------------------------------------------------------
+    # 3. PROSES GENERATE & DOWNLOAD DOKUMEN (PAKAI TEMPLATE MASTER)
+    # ---------------------------------------------------------
+    st.divider()
+    if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
+        template_path = "templates/MASTER_BA_SO.docx"
+
+        if not os.path.exists(template_path):
+            st.error(f"❌ Template master tidak ditemukan di `{template_path}`. Pastikan file `.docx` sudah ada di folder `templates/` repo GitHub lu.")
+        else:
+            with st.spinner("Menyusun Berita Acara..."):
+                doc = DocxTemplate(template_path)
+
+                context = {
+                    "hari": hari,
+                    "tanggal": tanggal,
+                    "bulan": bulan,
+                    "tahun": tahun,
+                    "lokasi": lokasi_bandara,
+                    "alamat": alamat,
+                    "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
+                    "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
+                    "pj_store": pj_store,
+                    "audit_aset": audit_aset,
+                    "pic_lm": pic_lm,
+                    "station": st.session_state.get("station", ""),
+                    "unit_kerja": st.session_state.get("kategori", ""),
+                    
+                    # Data Tabel
+                    "rows_serviceable": df_serviceable.to_dict('records'),
+                    "rows_unserviceable": df_unserviceable.to_dict('records'),
+                    "rows_unrecorded": df_unrecorded.to_dict('records'),
+                    "rows_facility": df_facility.to_dict('records'),
+                    "rows_rekomendasi": df_rekomendasi.to_dict('records'),
+                }
+
+                doc.render(context)
+
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    file_title = f"BA_Stock_Opname_{st.session_state.get('station', 'LOC')}_{tahun}"
+                    out_docx_path = os.path.join(tmpdir, f"{file_title}.docx")
+                    doc.save(out_docx_path)
+
+                    with open(out_docx_path, "rb") as f:
+                        docx_bytes = f.read()
+
+                    pdf_path = convert_docx_to_pdf(out_docx_path, tmpdir)
+                    pdf_bytes = None
+                    if pdf_path and os.path.exists(pdf_path):
+                        with open(pdf_path, "rb") as f:
+                            pdf_bytes = f.read()
+
+                    st.success("✅ Berita Acara berhasil di-generate!")
+
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.download_button(
+                            label="📥 Download File DOCX (Word)",
+                            data=docx_bytes,
+                            file_name=f"{file_title}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True
+                        )
+                    with c2:
+                        if pdf_bytes:
+                            st.download_button(
+                                label="📥 Download File PDF",
+                                data=pdf_bytes,
+                                file_name=f"{file_title}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True
+                            )
+                        else:
+                            st.warning("⚠️ Konversi PDF hanya berfungsi jika LibreOffice terpasang di server.")
