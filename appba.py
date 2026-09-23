@@ -3,6 +3,7 @@ import io
 import requests
 import subprocess
 import tempfile
+from datetime import timedelta
 import pandas as pd
 import streamlit as st
 from docxtpl import DocxTemplate
@@ -19,19 +20,30 @@ st.write("Isi formulir di bawah ini untuk menghasilkan dokumen Berita Acara dala
 st.divider()
 
 # ---------------------------------------------------------
+# HELPER FORMAT TANGGAL BAHASA INDONESIA
+# ---------------------------------------------------------
+HARI_LIST = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+BULAN_LIST = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+]
+
+def format_indo_date(dt):
+    """Format tanggal ke Bahasa Indonesia (contoh: 'Senin, 18 Februari 2026')."""
+    hari = HARI_LIST[dt.weekday()]
+    tgl = dt.day
+    bln = BULAN_LIST[dt.month - 1]
+    thn = dt.year
+    return f"{hari}, {tgl} {bln} {thn}"
+
+# ---------------------------------------------------------
 # DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE
 # ---------------------------------------------------------
-# File ID dari link Google Drive Anda
 FILE_ID = "1pqxqLCf-N6HxjXI7KZuRMikWEjiMIVlW"
-
-# Gunakan URL Export Direct Download untuk file Word (.docx)
 TEMPLATE_DRIVE_URL = f"https://docs.google.com/document/d/{FILE_ID}/export?format=docx"
 
-# Jika file di Drive berupa file .docx asli yang di-upload (bukan format Google Docs native), gunakan URL ini:
-# TEMPLATE_DRIVE_URL = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
 
-
-@st.cache_data(ttl=3600)  # Cache selama 1 jam agar Streamlit tidak perlu mendownload ulang setiap kali tombol diklik
+@st.cache_data(ttl=3600)
 def fetch_master_template(url: str) -> bytes:
     """Mengunduh template master dari Google Drive dan menyimpannya di cache Streamlit."""
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -45,15 +57,10 @@ def fetch_master_template(url: str) -> bytes:
 with st.expander("📌 Informasi Umum & Header Audit", expanded=True):
     col1, col2 = st.columns(2)
     
-    daftar_bulan = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-    ]
-    
     with col1:
-        hari = st.selectbox("Hari Audit", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"])
+        hari = st.selectbox("Hari Audit", HARI_LIST)
         tanggal = st.number_input("Tanggal", min_value=1, max_value=31, value=15)
-        bulan = st.selectbox("Bulan Berita Acara", daftar_bulan, index=1)
+        bulan = st.selectbox("Bulan Berita Acara", BULAN_LIST, index=1)
         tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
         lokasi_bandara = st.text_input("Lokasi / Bandara (contoh: PLM / Palembang)", "PLM")
         alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
@@ -69,11 +76,11 @@ with st.expander("📌 Informasi Umum & Header Audit", expanded=True):
     col_pj1, col_pj2 = st.columns(2)
     
     with col_pj1:
-        bulan_lalu = st.selectbox("Pilih Bulan Sebelumnya", daftar_bulan, index=0, key="select_bulan_lalu")
+        bulan_lalu = st.selectbox("Pilih Bulan Sebelumnya", BULAN_LIST, index=0, key="select_bulan_lalu")
         pj_store_lalu = st.text_input(f"Nama PJ Store LM (Periode {bulan_lalu})", "Nama PJ Store Bulan Lalu")
 
     with col_pj2:
-        bulan_ini = st.selectbox("Pilih Bulan Sekarang", daftar_bulan, index=1, key="select_bulan_ini")
+        bulan_ini = st.selectbox("Pilih Bulan Sekarang", BULAN_LIST, index=1, key="select_bulan_ini")
         pj_store_ini = st.text_input(f"Nama PJ Store LM (Periode {bulan_ini})", "Nama PJ Store Bulan Sekarang")
 
 # ==========================================
@@ -134,14 +141,25 @@ with tab4:
 
 with tab5:
     st.markdown("**Rekomendasi & Timeframe Pelaksanaan**")
+    st.caption("ℹ️ Tanggal target penyelesaian akan dihitung otomatis dari Tanggal Selesai Audit berdasarkan durasi hari.")
     df_rekomendasi = st.data_editor(
         pd.DataFrame([
-            {"no": 1, "subject": "Not Found", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi": "3 Hari"},
-            {"no": 2, "subject": "Unrecord Parts", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi": "2 Hari"},
+            {"no": 1, "subject": "Not Found", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi_hari": 3},
+            {"no": 2, "subject": "Unrecord Parts", "rekomendasi": "Pemeriksaan ulang fisik & eMRO", "durasi_hari": 2},
         ]),
         num_rows="dynamic",
         key="editor_rekomendasi",
-        use_container_width=True
+        use_container_width=True,
+        column_config={
+            "durasi_hari": st.column_config.NumberColumn(
+                "Durasi (Hari)",
+                help="Jumlah hari pelaksanaan rekomendasi",
+                min_value=1,
+                max_value=60,
+                step=1,
+                format="%d Hari"
+            )
+        }
     )
 
 # ==========================================
@@ -157,7 +175,7 @@ def convert_docx_to_pdf(docx_path, output_dir):
         
         pdf_filename = os.path.basename(docx_path).replace(".docx", ".pdf")
         return os.path.join(output_dir, pdf_filename)
-    except Exception as e:
+    except Exception:
         return None
 
 # ==========================================
@@ -167,17 +185,35 @@ st.divider()
 if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
     with st.spinner("Mengunduh template master dari Google Drive & memproses dokumen..."):
         try:
-            # 1. Unduh template master dari Google Drive
             template_bytes = fetch_master_template(TEMPLATE_DRIVE_URL)
-            
-            # 2. Buka template langsung dari memory stream (BytesIO)
             doc = DocxTemplate(io.BytesIO(template_bytes))
         except Exception as e:
             st.error(f"❌ Gagal mengambil template dari Google Drive: {e}")
             st.info("Pastikan file di Google Drive sudah di-set 'Anyone with the link' / 'Siapa saja yang memiliki link'!")
             st.stop()
 
-        # Menyiapkan data context untuk dimasukkan ke template Word
+        # Proses otomatisasi tanggal timeframe rekomendasi
+        rows_rekomendasi_processed = []
+        for idx, row in df_rekomendasi.iterrows():
+            row_dict = row.to_dict()
+            try:
+                durasi = int(row_dict.get("durasi_hari", 1))
+            except (ValueError, TypeError):
+                durasi = 1
+                
+            start_tf = tgl_selesai
+            end_tf = tgl_selesai + timedelta(days=durasi)
+            
+            # Field siap pakai untuk dimasukkan ke template Word
+            row_dict["durasi"] = f"{durasi} Hari"
+            row_dict["tgl_mulai_tf"] = start_tf.strftime("%d-%m-%Y")
+            row_dict["tgl_selesai_tf"] = end_tf.strftime("%d-%m-%Y")
+            row_dict["target_date"] = format_indo_date(end_tf)
+            row_dict["timeframe"] = f"{format_indo_date(start_tf)} s/d {format_indo_date(end_tf)}"
+            
+            rows_rekomendasi_processed.append(row_dict)
+
+        # Context data yang dikirim ke Word Template
         context = {
             "hari": hari,
             "tanggal": tanggal,
@@ -187,6 +223,8 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
             "alamat": alamat,
             "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
             "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
+            "tgl_mulai_indo": format_indo_date(tgl_mulai),
+            "tgl_selesai_indo": format_indo_date(tgl_selesai),
             
             # Data PJ Store LM
             "bulan_lalu": bulan_lalu,
@@ -203,23 +241,21 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
             "rows_unserviceable": df_unserviceable.to_dict('records'),
             "rows_unrecorded": df_unrecorded.to_dict('records'),
             "rows_facility": df_facility.to_dict('records'),
-            "rows_rekomendasi": df_rekomendasi.to_dict('records'),
+            "rows_rekomendasi": rows_rekomendasi_processed,
         }
 
-        # Render template dengan data dari form
+        # Render template
         doc.render(context)
 
-        # Gunakan temporary directory untuk menyimpan file output hasil pengisian
+        # Simpan ke temporary directory
         with tempfile.TemporaryDirectory() as tmpdir:
             file_title = f"BA_Stock_Opname_{lokasi_bandara}_{tahun}"
             docx_path = os.path.join(tmpdir, f"{file_title}.docx")
             doc.save(docx_path)
 
-            # Read DOCX ke bytes
             with open(docx_path, "rb") as f:
                 docx_bytes = f.read()
 
-            # Konversi DOCX ke PDF
             pdf_path = convert_docx_to_pdf(docx_path, tmpdir)
             pdf_bytes = None
             if pdf_path and os.path.exists(pdf_path):
@@ -228,7 +264,6 @@ if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=T
 
             st.success("✅ Berita Acara berhasil di-generate!")
 
-            # Tombol Download
             c1, c2 = st.columns(2)
             with c1:
                 st.download_button(
