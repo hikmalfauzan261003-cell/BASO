@@ -45,7 +45,7 @@ if st.session_state["page"] == "landing":
     # 1. STEP 1: Pilih Unit Kerja (Line Maintenance, GSE, Warehouse, Shop)
     st.subheader("1️⃣ Pilih Unit Kerja")
     unit_list = list(raw_data.keys())
-    selected_kategori = st.radio(
+    selected_kategori = st.selectbox(
         "Unit Kerja Tersedia:",
         options=unit_list,
         horizontal=True,
