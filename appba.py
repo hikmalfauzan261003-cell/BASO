@@ -26,7 +26,7 @@ if "page" not in st.session_state:
     st.session_state["page"] = "landing"
 
 # ---------------------------------------------------------
-# PAGE 1: LANDING PAGE
+# PAGE 1: LANDING PAGE (URUTAN: STATION -> UNIT KERJA)
 # ---------------------------------------------------------
 if st.session_state["page"] == "landing":
     st.title("📋 Generator Berita Acara Stock Opname")
@@ -36,38 +36,38 @@ if st.session_state["page"] == "landing":
 
     # Load data otomatis via HTTP Request
     with st.spinner("Memuat struktur template dari Google Drive..."):
-        raw_data = fetch_drive_data()
+        template_config = fetch_drive_data()
 
-    if not raw_data:
+    if not template_config:
         st.warning("⚠️ Data folder belum dimuat atau folder di Google Drive masih kosong.")
         st.stop()
 
-    # Remap data dari {Unit: {Station: Info}} jadi {Station: {Unit: Info}}
-    station_data = {}
-    for unit_name, stations in raw_data.items():
+    # 1. RE-MAP DATA: Ubah dari {Unit: {Station: Info}} menjadi {Station: {Unit: Info}}
+    station_config = {}
+    for unit_name, stations in template_config.items():
         if isinstance(stations, dict):
             for station_name, info in stations.items():
-                if station_name not in station_data:
-                    station_data[station_name] = {}
-                station_data[station_name][unit_name] = info
+                if station_name not in station_config:
+                    station_config[station_name] = {}
+                station_config[station_name][unit_name] = info
 
-    if not station_data:
-        st.warning("⚠️ Format data dari Google Drive tidak valid.")
+    if not station_config:
+        st.warning("⚠️ Format data template dari Google Drive tidak sesuai atau kosong.")
         st.stop()
 
-    # 1. STEP 1: Pilih Station pakai Dropdown (Selectbox)
+    # 2. STEP 1: Pilih Station / Lokasi Bandara
     st.subheader("1️⃣ Pilih Station / Lokasi Bandara")
-    station_list = sorted(list(station_data.keys()))
+    all_stations = list(station_config.keys())
     selected_station = st.selectbox(
         "Daftar Station Tersedia:",
-        options=station_list
+        options=all_stations
     )
 
     st.markdown("---")
 
-    # 2. STEP 2: Pilih Unit Kerja di Station Tersebut
+    # 3. STEP 2: Pilih Unit Kerja berdasarkan Station
     st.subheader(f"2️⃣ Pilih Unit Kerja di {selected_station}")
-    units_available = station_data.get(selected_station, {})
+    units_available = station_config.get(selected_station, {})
 
     if units_available:
         unit_list = list(units_available.keys())
@@ -92,4 +92,4 @@ if st.session_state["page"] == "landing":
                 st.session_state["page"] = "form_input"
                 st.rerun()
     else:
-        st.warning(f"⚠️ Belum ada unit kerja yang terdaftar untuk station {selected_station}.")
+        st.warning("⚠️ Belum ada unit kerja yang terdaftar untuk station ini.")
