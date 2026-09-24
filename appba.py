@@ -29,12 +29,12 @@ def fetch_master_template():
 # ---------------------------------------------------------
 # Lu bisa sesuaikan daftar station & unit kerja di bawah ini
 DATA_STATION = {
-    "PLM": ["Line Maintenance", "GSE"],
-    "CGK": ["Line Maintenance", "GSE"],
-    "SUB": ["Line Maintenance & Scheduled Maintenance", "GSE"],
-    "KNO": ["Line Maintenance", "GSE"],
-    "BTH": ["Line Maintenance", "GSE", "Warehouse", "Base Maintenance", "Shop"],
-    "MST": ["Warehouse", "Shop"],
+    "Bandar Udara Internasional Sultan Mahmud Badaruddin II - PLM": ["Line Maintenance", "GSE"],
+    "Bandar Udara Internasional Soekarno–Hatta - CGK": ["Line Maintenance", "GSE"],
+    "Bandar Udara Internasional Juanda - SUB": ["Line Maintenance & Scheduled Maintenance", "GSE"],
+    "Bandar Udara Internasional Kualanamu - KNO": ["Line Maintenance", "GSE"],
+    "Bandar Udara Internasional Hang Nadim - BTH": ["Line Maintenance", "GSE", "Warehouse", "Base Maintenance", "Shop"],
+    "Maintenance Shop Tangerang - MST": ["Warehouse", "Shop"],
 }
 
 def convert_docx_to_pdf(docx_path, output_dir):
@@ -123,7 +123,7 @@ elif st.session_state["page"] == "form_input":
             idx_bln = LIST_BULAN.index(bulan)
             bulan_lalu = LIST_BULAN[idx_bln - 1]  # Otomatis mundur 1 bulan
             tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
-            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', '(Bandar Udara Sultan Mahmud Badaruddin II))
+            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', '(selected_station)
             alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
 
         with col2:
