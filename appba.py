@@ -5,7 +5,7 @@ import tempfile
 import pandas as pd
 import requests
 import streamlit as st
-from docxtpl import DocxTemplate
+from docx import Document
 
 st.set_page_config(
     page_title="Generator BA Stock Opname Suki",
@@ -21,7 +21,7 @@ FILE_ID_BA = "1jB-AkIpVZmX_BGDiW6j-mTUIluYlZqeo"
 
 @st.cache_data
 def fetch_master_template():
-    """Mengunduh template master Berita Acara dari Google Drive dengan penanganan konfirmasi virus scan."""
+    """Mengunduh template master Berita Acara asli dari Google Drive."""
     session = requests.Session()
     response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA}, stream=True)
     
@@ -57,6 +57,27 @@ def convert_docx_to_pdf(docx_path, output_dir):
         return os.path.join(output_dir, pdf_filename)
     except Exception as e:
         return None
+
+# Fungsi untuk mengganti teks placeholder di template asli tanpa merusak format
+def replace_text_in_document(doc, replacements):
+    # Ganti di paragraf biasa
+    for p in doc.paragraphs:
+        for key, val in replacements.items():
+            if key in p.text:
+                for run in p.runs:
+                    if key in run.text:
+                        run.text = run.text.replace(key, str(val))
+                        
+    # Ganti di dalam tabel-tabel template
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    for key, val in replacements.items():
+                        if key in p.text:
+                            for run in p.runs:
+                                if key in run.text:
+                                    run.text = run.text.replace(key, str(val))
 
 # Inisialisasi Session State Halaman
 if "page" not in st.session_state:
@@ -203,34 +224,49 @@ elif st.session_state["page"] == "form_input":
             use_container_width=True
         )
 
-    # 3. PROSES GENERATE & DOWNLOAD DOKUMEN
+    # 3. PROSES GENERATE & DOWNLOAD DOKUMEN MENGGUNAKAN TEMPLATE ASLI
     st.divider()
-    if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
-        with st.spinner("Suki lagi merakit Berita Acara... 😹"):
+    if st.button("🚀 Generate Berita Acara (Template Asli)", type="primary", use_container_width=True):
+        with st.spinner("Suki sedang mengisi template asli dari Google Drive... 😹"):
             try:
                 template_bytes = fetch_master_template()
-                doc = DocxTemplate(template_bytes)
+                doc = Document(template_bytes)
                 
-                # Context bersih tanpa looping tabel Jinja yang bikin error XML
-                context = {
-                    "hari": hari,
-                    "tanggal": tanggal,
-                    "bulan": bulan,
-                    "bulan_lalu": bulan_lalu,
-                    "tahun": tahun,
-                    "lokasi": lokasi_bandara,
-                    "alamat": alamat,
-                    "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
-                    "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
-                    "pj_store": pj_store_sekarang,
-                    "pj_store_lalu": pj_store_lalu,
-                    "audit_aset": audit_aset,
-                    "pic_lm": pic_lm,
-                    "station": st.session_state.get("station", ""),
-                    "unit_kerja": st.session_state.get("kategori", ""),
+                # Daftar mapping teks yang mau diganti di template asli
+                replacements = {
+                    "{{hari}}": str(hari),
+                    "{{ tanggal }}": str(tanggal),
+                    "{{tanggal}}": str(tanggal),
+                    "{{ bulan }}": str(bulan),
+                    "{{bulan}}": str(bulan),
+                    "{{ bulan_lalu }}": str(bulan_lalu),
+                    "{{bulan_lalu}}": str(bulan_lalu),
+                    "{{ tahun }}": str(tahun),
+                    "{{tahun}}": str(tahun),
+                    "{{ lokasi }}": str(lokasi_bandara),
+                    "{{lokasi}}": str(lokasi_bandara),
+                    "{{ alamat }}": str(alamat),
+                    "{{alamat}}": str(alamat),
+                    "{{ tgl_mulai }}": str(tgl_mulai.strftime('%d-%m-%Y')),
+                    "{{tgl_mulai}}": str(tgl_mulai.strftime('%d-%m-%Y')),
+                    "{{ tgl_selesai }}": str(tgl_selesai.strftime('%d-%m-%Y')),
+                    "{{tgl_selesai}}": str(tgl_selesai.strftime('%d-%m-%Y')),
+                    "{{ pj_store }}": str(pj_store_sekarang),
+                    "{{pj_store}}": str(pj_store_sekarang),
+                    "{{ pj_store_lalu }}": str(pj_store_lalu),
+                    "{{pj_store_lalu}}": str(pj_store_lalu),
+                    "{{ audit_aset }}": str(audit_aset),
+                    "{{audit_aset}}": str(audit_aset),
+                    "{{ pic_lm }}": str(pic_lm),
+                    "{{pic_lm}}": str(pic_lm),
+                    "{{ station }}": str(st.session_state.get("station", "")),
+                    "{{station}}": str(st.session_state.get("station", "")),
+                    "{{ unit_kerja }}": str(st.session_state.get("kategori", "")),
+                    "{{unit_kerja}}": str(st.session_state.get("kategori", "")),
                 }
 
-                doc.render(context)
+                # Jalankan fungsi penggantian teks ke template asli
+                replace_text_in_document(doc, replacements)
 
                 with tempfile.TemporaryDirectory() as tmpdir:
                     file_title = f"BA_Stock_Opname_{st.session_state.get('station', 'LOC')}_{tahun}"
@@ -246,7 +282,7 @@ elif st.session_state["page"] == "form_input":
                         with open(pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-                    st.success("✅ Berita Acara Berhasil Dihitamkan (Generated) 😹")
+                    st.success("✅ Berita Acara Berhasil Dibuat Menggunakan Template Asli! 🚀")
 
                     c1, c2 = st.columns(2)
                     with c1:
@@ -270,5 +306,4 @@ elif st.session_state["page"] == "form_input":
                             st.warning("⚠️ Konversi PDF hanya berfungsi jika LibreOffice terpasang di server.")
 
             except Exception as e:
-                st.error(f"❌ Gagal memproses Berita Acara: {e}")
-                st.info("💡 **Catatan Prof:** Pastikan di file template Word Google Drive kamu sudah tidak ada tag `{% for ... %}` atau `{%tr` untuk tabel rekapitulasi agar mesin tidak mencari-cari data tabel tersebut.")
+                st.error(f"❌ Gagal memproses: {e}")
