@@ -206,11 +206,12 @@ elif st.session_state["page"] == "form_input":
     # 3. PROSES GENERATE & DOWNLOAD DOKUMEN
     st.divider()
     if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
-        with st.spinner("Suki lagi merakit Berita Acara dari Google Drive... 😹"):
+        with st.spinner("Suki lagi merakit Berita Acara... 😹"):
             try:
                 template_bytes = fetch_master_template()
                 doc = DocxTemplate(template_bytes)
                 
+                # Context bersih tanpa looping tabel Jinja yang bikin error XML
                 context = {
                     "hari": hari,
                     "tanggal": tanggal,
@@ -227,11 +228,6 @@ elif st.session_state["page"] == "form_input":
                     "pic_lm": pic_lm,
                     "station": st.session_state.get("station", ""),
                     "unit_kerja": st.session_state.get("kategori", ""),
-                    "rows_serviceable": df_serviceable.to_dict('records'),
-                    "rows_unserviceable": df_unserviceable.to_dict('records'),
-                    "rows_unrecorded": df_unrecorded.to_dict('records'),
-                    "rows_facility": df_facility.to_dict('records'),
-                    "rows_rekomendasi": df_rekomendasi.to_dict('records'),
                 }
 
                 doc.render(context)
@@ -275,4 +271,4 @@ elif st.session_state["page"] == "form_input":
 
             except Exception as e:
                 st.error(f"❌ Gagal memproses Berita Acara: {e}")
-                st.info("💡 **Tips:** Periksa kembali file Template Word (.docx) di Google Drive kamu. Pastikan tidak ada karakter `%` mentah atau salah ketik penulisan tag Jinja (seperti `{%` atau `{{`) di dalam teks atau tabel template.")
+                st.info("💡 **Catatan Prof:** Pastikan di file template Word Google Drive kamu sudah tidak ada tag `{% for ... %}` atau `{%tr` untuk tabel rekapitulasi agar mesin tidak mencari-cari data tabel tersebut.")
