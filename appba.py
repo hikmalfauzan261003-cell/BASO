@@ -14,8 +14,7 @@ st.set_page_config(
 # ---------------------------------------------------------
 # DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE
 # ---------------------------------------------------------
-TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download&id=16a4z69o0IGjmOZb_sP3HDG2m2WQnYxJI"
-
+TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download&id=1jB-AkIpVZmX_BGDiW6j-mTUIluYlZqeo"
 
 @st.cache_data
 def fetch_master_template():
@@ -122,9 +121,9 @@ elif st.session_state["page"] == "form_input":
 
             # Hitung otomatis bulan lalu berdasarkan pilihan user
             idx_bln = LIST_BULAN.index(bulan)
-            bulan_lalu = LIST_BULAN[idx_bln - 1]  # Otomatis mundur 1 bulan (Januari -> Desember)
+            bulan_lalu = LIST_BULAN[idx_bln - 1]  # Otomatis mundur 1 bulan
             tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
-            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', 'PLM'))
+            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', '(Bandar Udara Sultan Mahmud Badaruddin II))
             alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
 
         with col2:
