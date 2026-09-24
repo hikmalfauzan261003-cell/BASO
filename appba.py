@@ -12,6 +12,20 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
+# DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE
+# ---------------------------------------------------------
+TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download&id=16a4z69o0IGjmOZb_sP3HDG2m2WQnYxJI"
+
+
+@st.cache_data
+def fetch_master_template():
+    """Mengunduh template master dari Google Drive dan menyimpannya di cache Streamlit."""
+    response = requests.get(TEMPLATE_DRIVE_URL)
+    response.raise_for_status()
+    return io.BytesIO(response.content)
+
+
+# ---------------------------------------------------------
 # DATA STATION & UNIT KERJA (LOKAL)
 # ---------------------------------------------------------
 # Lu bisa sesuaikan daftar station & unit kerja di bawah ini
