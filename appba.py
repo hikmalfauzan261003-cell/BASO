@@ -3,17 +3,35 @@ import os
 import subprocess
 import tempfile
 import pandas as pd
+import requests
 import streamlit as st
-from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
+from docxtpl import DocxTemplate
 
 st.set_page_config(
     page_title="Generator BA Stock Opname Suki",
     page_icon="📋",
     layout="wide"
 )
+
+# ---------------------------------------------------------
+# DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE (BERITA ACARA)
+# ---------------------------------------------------------
+TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download"
+FILE_ID_BA = "1jB-AkIpVZmX_BGDiW6j-mTUIluYlZqeo"
+
+@st.cache_data
+def fetch_master_template():
+    """Mengunduh template master Berita Acara dari Google Drive dengan penanganan konfirmasi virus scan."""
+    session = requests.Session()
+    response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA}, stream=True)
+    
+    for key, value in response.cookies.items():
+        if key.startswith("download_warning"):
+            response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA, "confirm": value}, stream=True)
+            break
+            
+    response.raise_for_status()
+    return io.BytesIO(response.content)
 
 # ---------------------------------------------------------
 # DATA STATION & UNIT KERJA (LOKAL)
@@ -185,77 +203,35 @@ elif st.session_state["page"] == "form_input":
             use_container_width=True
         )
 
-    # 3. PROSES GENERATE & DOWNLOAD DOKUMEN (MURNI PYTHON-DOCX)
+    # 3. PROSES GENERATE & DOWNLOAD DOKUMEN
     st.divider()
-    if st.button("🚀 Generate Berita Acara (Murni Python)", type="primary", use_container_width=True):
-        with st.spinner("Suki sedang merakit dokumen secara mandiri (Tanpa Template Ghoib)... 😹"):
+    if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
+        with st.spinner("Suki lagi merakit Berita Acara... 😹"):
             try:
-                doc = Document()
+                template_bytes = fetch_master_template()
+                doc = DocxTemplate(template_bytes)
                 
-                # Header Judul Dokumen
-                p_title = doc.add_paragraph()
-                p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                run_title = p_title.add_run("BERITA ACARA STOCK OPNAME")
-                run_title.bold = True
-                run_title.font.size = Pt(16)
-                
-                p_sub = doc.add_paragraph()
-                p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                run_sub = p_sub.add_run(f"STATION: {lokasi_bandara} — UNIT: {st.session_state.get('kategori', '-')}")
-                run_sub.font.size = Pt(12)
-                
-                doc.add_paragraph() # Spasi
+                # Context bersih tanpa looping tabel Jinja yang bikin error XML
+                context = {
+                    "hari": hari,
+                    "tanggal": tanggal,
+                    "bulan": bulan,
+                    "bulan_lalu": bulan_lalu,
+                    "tahun": tahun,
+                    "lokasi": lokasi_bandara,
+                    "alamat": alamat,
+                    "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
+                    "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
+                    "pj_store": pj_store_sekarang,
+                    "pj_store_lalu": pj_store_lalu,
+                    "audit_aset": audit_aset,
+                    "pic_lm": pic_lm,
+                    "station": st.session_state.get("station", ""),
+                    "unit_kerja": st.session_state.get("kategori", ""),
+                }
 
-                # Paragraf Pembuka
-                doc.add_paragraph(
-                    f"Pada hari ini {hari}, tanggal {tanggal} {bulan} tahun {tahun}, telah dilakukan stock opname "
-                    f"di {lokasi_bandara} yang beralamat di {alamat}, mulai tanggal {tgl_mulai.strftime('%d-%m-%Y')} "
-                    f"sampai dengan {tgl_selesai.strftime('%d-%m-%Y')}."
-                )
+                doc.render(context)
 
-                doc.add_paragraph(
-                    f"Kegiatan audit ini melibatkan:\n"
-                    f"- PJ Store LM ({bulan}): {pj_store_sekarang}\n"
-                    f"- PJ Store LM ({bulan_lalu}): {pj_store_lalu}\n"
-                    f"- Pelaksana Audit Aset: {audit_aset}\n"
-                    f"- PIC Line Maintenance: {pic_lm}"
-                )
-
-                # Fungsi Helper Pembuat Tabel Otomatis
-                def add_dataframe_to_doc(title, df):
-                    doc.add_heading(title, level=2)
-                    if df.empty:
-                        doc.add_paragraph("Tidak ada data.")
-                        return
-                    
-                    table = doc.add_table(rows=len(df) + 1, cols=len(df.columns))
-                    table.style = 'Table Grid'
-                    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-                    
-                    # Header
-                    hdr_cells = table.rows[0].cells
-                    for i, col_name in enumerate(df.columns):
-                        hdr_cells[i].text = str(col_name).upper()
-                        for p in hdr_cells[i].paragraphs:
-                            for r in p.runs:
-                                r.bold = True
-                    
-                    # Isinya
-                    for row_idx, row_data in enumerate(df.itertuples(index=False)):
-                        row_cells = table.rows[row_idx + 1].cells
-                        for col_idx, val in enumerate(row_data):
-                            row_cells[col_idx].text = str(val)
-                    
-                    doc.add_paragraph() # Spasi antar tabel
-
-                # Masukin semua tabel dari editor
-                add_dataframe_to_doc("1. Serviceable Area", df_serviceable)
-                add_dataframe_to_doc("2. Unserviceable Area", df_unserviceable)
-                add_dataframe_to_doc("3. Unrecorded Parts", df_unrecorded)
-                add_dataframe_to_doc("4. Facility Check", df_facility)
-                add_dataframe_to_doc("5. Rekomendasi & Timeframe", df_rekomendasi)
-
-                # Simpan Dokumen
                 with tempfile.TemporaryDirectory() as tmpdir:
                     file_title = f"BA_Stock_Opname_{st.session_state.get('station', 'LOC')}_{tahun}"
                     out_docx_path = os.path.join(tmpdir, f"{file_title}.docx")
@@ -270,7 +246,7 @@ elif st.session_state["page"] == "form_input":
                         with open(pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-                    st.success("✅ Berita Acara Sukses Dibuat Tanpa Drama Error! 🚀")
+                    st.success("✅ Berita Acara Berhasil Dihitamkan (Generated) 😹")
 
                     c1, c2 = st.columns(2)
                     with c1:
@@ -294,4 +270,5 @@ elif st.session_state["page"] == "form_input":
                             st.warning("⚠️ Konversi PDF hanya berfungsi jika LibreOffice terpasang di server.")
 
             except Exception as e:
-                st.error(f"❌ Gagal memproses: {e}")
+                st.error(f"❌ Gagal memproses Berita Acara: {e}")
+                st.info("💡 **Catatan Prof:** Pastikan di file template Word Google Drive kamu sudah tidak ada tag `{% for ... %}` atau `{%tr` untuk tabel rekapitulasi agar mesin tidak mencari-cari data tabel tersebut.")
