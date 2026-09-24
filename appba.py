@@ -123,7 +123,7 @@ elif st.session_state["page"] == "form_input":
             idx_bln = LIST_BULAN.index(bulan)
             bulan_lalu = LIST_BULAN[idx_bln - 1]  # Otomatis mundur 1 bulan
             tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
-            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', '(selected_station)')
+            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', 'selected_station')
             alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
 
         with col2:
