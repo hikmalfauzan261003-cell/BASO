@@ -16,19 +16,15 @@ st.set_page_config(
 # ---------------------------------------------------------
 # DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE (BERITA ACARA)
 # ---------------------------------------------------------
-TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download"
-FILE_ID_BA = "1sY3cQpEMLdCzDm5M1OkvwjandKiQE5ty"
-
 @st.cache_data
 def fetch_master_template():
-    """Mengunduh template master Berita Acara dari Google Drive dengan penanganan konfirmasi virus scan."""
-    session = requests.Session()
-    response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA}, stream=True)
+    """Menggunakan template master Berita Acara dari file lokal."""
+    file_path = "master_template.docx"
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File template '{file_path}' tidak ditemukan di direktori lokal!")
     
-    for key, value in response.cookies.items():
-        if key.startswith("download_warning"):
-            response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA, "confirm": value}, stream=True)
-            break
+    with open(file_path, "rb") as f:
+        return io.BytesIO(f.read())
             
     response.raise_for_status()
     return io.BytesIO(response.content)
