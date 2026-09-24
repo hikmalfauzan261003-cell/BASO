@@ -206,12 +206,24 @@ elif st.session_state["page"] == "form_input":
     # 3. PROSES GENERATE & DOWNLOAD DOKUMEN
     st.divider()
     if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
-        with st.spinner("Suki lagi merakit Berita Acara... 😹"):
+        with st.spinner("Suki lagi merakit & membersihkan Berita Acara... 😹"):
             try:
                 template_bytes = fetch_master_template()
                 doc = DocxTemplate(template_bytes)
                 
-                # Context bersih tanpa looping tabel Jinja yang bikin error XML
+                # --- PEMBERSIH PAKSA KARAKTER SETAN '%' DI TEMPLATE ---
+                for paragraph in doc.paragraphs:
+                    if "%" in paragraph.text:
+                        paragraph.text = paragraph.text.replace("{%", "").replace("%}", "").replace("{{%", "{{")
+
+                for table in doc.tables:
+                    for row in table.rows:
+                        for cell in row.cells:
+                            for paragraph in cell.paragraphs:
+                                if "%" in paragraph.text:
+                                    paragraph.text = paragraph.text.replace("{%", "").replace("%}", "").replace("{{%", "{{")
+                # ----------------------------------------------------
+
                 context = {
                     "hari": hari,
                     "tanggal": tanggal,
@@ -246,7 +258,7 @@ elif st.session_state["page"] == "form_input":
                         with open(pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-                    st.success("✅ Berita Acara Berhasil Dihitamkan (Generated) 😹")
+                    st.success("✅ Berita Acara Berhasil Dihitamkan & Dibersihkan! 😹")
 
                     c1, c2 = st.columns(2)
                     with c1:
@@ -271,4 +283,3 @@ elif st.session_state["page"] == "form_input":
 
             except Exception as e:
                 st.error(f"❌ Gagal memproses Berita Acara: {e}")
-                st.info("💡 **Catatan Prof:** Pastikan di file template Word Google Drive kamu sudah tidak ada tag `{% for ... %}` atau `{%tr` untuk tabel rekapitulasi agar mesin tidak mencari-cari data tabel tersebut.")
