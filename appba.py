@@ -14,20 +14,25 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE (BERITA ACARA)
+# FUNGSI TEMPLATE LOKAL YANG AMAN
 # ---------------------------------------------------------
 @st.cache_data
 def fetch_master_template():
-    """Menggunakan template master Berita Acara dari file lokal."""
-    file_path = "master_template.docx"
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File template '{file_path}' tidak ditemukan di direktori lokal!")
+    """Mengambil template master Berita Acara dari file lokal dengan validasi."""
+    file_path = "template_ba.docx"
     
+    if not os.path.exists(file_path):
+        st.error(f"❌ File '{file_path}' tidak ditemukan di folder yang sama dengan script Streamlit ini!")
+        return None
+        
     with open(file_path, "rb") as f:
-        return io.BytesIO(f.read())
-            
-    response.raise_for_status()
-    return io.BytesIO(response.content)
+        content = f.read()
+        
+    if not content:
+        st.error(f"❌ File '{file_path}' terbaca kosong (0 bytes)!")
+        return None
+        
+    return io.BytesIO(content)
 
 # ---------------------------------------------------------
 # DATA STATION & UNIT KERJA (LOKAL)
