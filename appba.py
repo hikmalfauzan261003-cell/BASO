@@ -14,25 +14,24 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------
-# FUNGSI TEMPLATE LOKAL YANG AMAN
+# DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE (BERITA ACARA)
 # ---------------------------------------------------------
+TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download"
+FILE_ID_BA = "1jB-AkIpVZmX_BGDiW6j-mTUIluYlZqeo"
+
 @st.cache_data
 def fetch_master_template():
-    """Mengambil template master Berita Acara dari file lokal dengan validasi."""
-    file_path = "template_ba.docx"
+    """Mengunduh template master Berita Acara dari Google Drive dengan penanganan konfirmasi virus scan."""
+    session = requests.Session()
+    response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA}, stream=True)
     
-    if not os.path.exists(file_path):
-        st.error(f"❌ File '{file_path}' tidak ditemukan di folder yang sama dengan script Streamlit ini!")
-        return None
-        
-    with open(file_path, "rb") as f:
-        content = f.read()
-        
-    if not content:
-        st.error(f"❌ File '{file_path}' terbaca kosong (0 bytes)!")
-        return None
-        
-    return io.BytesIO(content)
+    for key, value in response.cookies.items():
+        if key.startswith("download_warning"):
+            response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA, "confirm": value}, stream=True)
+            break
+            
+    response.raise_for_status()
+    return io.BytesIO(response.content)
 
 # ---------------------------------------------------------
 # DATA STATION & UNIT KERJA (LOKAL)
@@ -72,6 +71,7 @@ if st.session_state["page"] == "landing":
 
     st.divider()
 
+    # 1. STEP 1: Pilih Station
     st.subheader("1️⃣ Pilih Station / Lokasi Bandara")
     selected_station = st.selectbox(
         "Daftar Station Tersedia:",
@@ -80,6 +80,7 @@ if st.session_state["page"] == "landing":
 
     st.markdown("---")
 
+    # 2. STEP 2: Pilih Unit Kerja
     st.subheader(f"2️⃣ Pilih Unit Kerja di {selected_station}")
     unit_list = DATA_STATION.get(selected_station, [])
 
@@ -114,7 +115,9 @@ elif st.session_state["page"] == "form_input":
     st.caption(f"📍 **Station:** `{st.session_state.get('station', '-')}` | 🏭 **Unit Kerja:** `{st.session_state.get('kategori', '-')}`")
     st.divider()
 
+    # ---------------------------------------------------------
     # 1. FORM INPUT HEADER & METADATA
+    # ---------------------------------------------------------
     with st.expander("📌 Informasi Umum & Header Audit", expanded=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -124,9 +127,10 @@ elif st.session_state["page"] == "form_input":
             bulan = st.selectbox("Bulan", LIST_BULAN)
 
             idx_bln = LIST_BULAN.index(bulan)
-            bulan_lalu = LIST_BULAN[idx_bln - 1]
+            bulan_lalu = LIST_BULAN[idx_bln - 1]  # Otomatis mundur 1 bulan
             tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
             
+            # [FIXED] Penambahan tanda kurung tutup yang kurang sebelumnya
             lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', 'selected_station'))
             alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
 
@@ -138,7 +142,9 @@ elif st.session_state["page"] == "form_input":
             audit_aset = st.text_input("Nama Pelaksana Audit Aset", "Nama Auditor Aset")
             pic_lm = st.text_input("Nama PIC Line Maintenance", "Nama PIC LM")
 
+    # ---------------------------------------------------------
     # 2. INPUT TABEL DATA (EDITABLE TABLES)
+    # ---------------------------------------------------------
     st.subheader("📊 Rekapitulasi Data Audit")
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "1. Serviceable Area",
@@ -152,7 +158,7 @@ elif st.session_state["page"] == "form_input":
         st.markdown("**Hasil pemeriksaan Part Aircraft, General, Chemical, dan Tools di Serviceable Area**")
         df_serviceable = st.data_editor(
             pd.DataFrame([
-                {"no": 1, "lokasi": "Rack A1", "deskripsi": "Aircraft Part Serviceable", "batch": "10", "jumlah": "50", "match": "48", "not_match": "2", "akurasi": "96"},
+                {"no": 1, "lokasi": "Rack A1", "deskripsi": "Aircraft Part Serviceable", "batch": "10", "jumlah": "50", "match": "48", "not_match": "2", "akurasi": "96%"},
             ]),
             num_rows="dynamic",
             key="editor_serviceable",
@@ -163,7 +169,7 @@ elif st.session_state["page"] == "form_input":
         st.markdown("**Hasil pemeriksaan Aircraft Part di Unserviceable Area**")
         df_unserviceable = st.data_editor(
             pd.DataFrame([
-                {"no": 1, "lokasi": "Scrap Area", "deskripsi": "Aircraft Part Unserviceable", "batch": "2", "jumlah": "5", "match": "5", "not_match": "0", "akurasi": "100"},
+                {"no": 1, "lokasi": "Scrap Area", "deskripsi": "Aircraft Part Unserviceable", "batch": "2", "jumlah": "5", "match": "5", "not_match": "0", "akurasi": "100%"},
             ]),
             num_rows="dynamic",
             key="editor_unserviceable",
@@ -204,27 +210,16 @@ elif st.session_state["page"] == "form_input":
             use_container_width=True
         )
 
+    # ---------------------------------------------------------
     # 3. PROSES GENERATE & DOWNLOAD DOKUMEN
+    # ---------------------------------------------------------
     st.divider()
     if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
-        with st.spinner("Suki lagi merakit & membersihkan Berita Acara... 😹"):
+        with st.spinner("Suki lagi merakit Berita Acara dari Google Drive... 😹"):
             try:
                 template_bytes = fetch_master_template()
                 doc = DocxTemplate(template_bytes)
                 
-                # --- PEMBERSIH PAKSA KARAKTER SETAN '%' DI TEMPLATE ---
-                for paragraph in doc.paragraphs:
-                    if "%" in paragraph.text:
-                        paragraph.text = paragraph.text.replace("{%", "").replace("%}", "").replace("{{%", "{{")
-
-                for table in doc.tables:
-                    for row in table.rows:
-                        for cell in row.cells:
-                            for paragraph in cell.paragraphs:
-                                if "%" in paragraph.text:
-                                    paragraph.text = paragraph.text.replace("{%", "").replace("%}", "").replace("{{%", "{{")
-                # ----------------------------------------------------
-
                 context = {
                     "hari": hari,
                     "tanggal": tanggal,
@@ -241,6 +236,11 @@ elif st.session_state["page"] == "form_input":
                     "pic_lm": pic_lm,
                     "station": st.session_state.get("station", ""),
                     "unit_kerja": st.session_state.get("kategori", ""),
+                    "rows_serviceable": df_serviceable.to_dict('records'),
+                    "rows_unserviceable": df_unserviceable.to_dict('records'),
+                    "rows_unrecorded": df_unrecorded.to_dict('records'),
+                    "rows_facility": df_facility.to_dict('records'),
+                    "rows_rekomendasi": df_rekomendasi.to_dict('records'),
                 }
 
                 doc.render(context)
@@ -259,7 +259,7 @@ elif st.session_state["page"] == "form_input":
                         with open(pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-                    st.success("✅ Berita Acara Berhasil Dihitamkan & Dibersihkan! 😹")
+                    st.success("✅ Berita Acara Berhasil Dihitamkan (Generated) 😹")
 
                     c1, c2 = st.columns(2)
                     with c1:
