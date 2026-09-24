@@ -17,7 +17,7 @@ st.set_page_config(
 # DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE (BERITA ACARA)
 # ---------------------------------------------------------
 TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download"
-FILE_ID_BA = "1jB-AkIpVZmX_BGDiW6j-mTUIluYlZqeo"
+FILE_ID_BA = "1sY3cQpEMLdCzDm5M1OkvwjandKiQE5ty"
 
 @st.cache_data
 def fetch_master_template():
