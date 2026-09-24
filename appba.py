@@ -71,7 +71,6 @@ if st.session_state["page"] == "landing":
 
     st.divider()
 
-    # 1. STEP 1: Pilih Station
     st.subheader("1️⃣ Pilih Station / Lokasi Bandara")
     selected_station = st.selectbox(
         "Daftar Station Tersedia:",
@@ -80,7 +79,6 @@ if st.session_state["page"] == "landing":
 
     st.markdown("---")
 
-    # 2. STEP 2: Pilih Unit Kerja
     st.subheader(f"2️⃣ Pilih Unit Kerja di {selected_station}")
     unit_list = DATA_STATION.get(selected_station, [])
 
@@ -115,9 +113,7 @@ elif st.session_state["page"] == "form_input":
     st.caption(f"📍 **Station:** `{st.session_state.get('station', '-')}` | 🏭 **Unit Kerja:** `{st.session_state.get('kategori', '-')}`")
     st.divider()
 
-    # ---------------------------------------------------------
     # 1. FORM INPUT HEADER & METADATA
-    # ---------------------------------------------------------
     with st.expander("📌 Informasi Umum & Header Audit", expanded=True):
         col1, col2 = st.columns(2)
         with col1:
@@ -127,10 +123,9 @@ elif st.session_state["page"] == "form_input":
             bulan = st.selectbox("Bulan", LIST_BULAN)
 
             idx_bln = LIST_BULAN.index(bulan)
-            bulan_lalu = LIST_BULAN[idx_bln - 1]  # Otomatis mundur 1 bulan
+            bulan_lalu = LIST_BULAN[idx_bln - 1]
             tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
             
-            # [FIXED] Penambahan tanda kurung tutup yang kurang sebelumnya
             lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', 'selected_station'))
             alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
 
@@ -142,9 +137,7 @@ elif st.session_state["page"] == "form_input":
             audit_aset = st.text_input("Nama Pelaksana Audit Aset", "Nama Auditor Aset")
             pic_lm = st.text_input("Nama PIC Line Maintenance", "Nama PIC LM")
 
-    # ---------------------------------------------------------
     # 2. INPUT TABEL DATA (EDITABLE TABLES)
-    # ---------------------------------------------------------
     st.subheader("📊 Rekapitulasi Data Audit")
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "1. Serviceable Area",
@@ -158,7 +151,7 @@ elif st.session_state["page"] == "form_input":
         st.markdown("**Hasil pemeriksaan Part Aircraft, General, Chemical, dan Tools di Serviceable Area**")
         df_serviceable = st.data_editor(
             pd.DataFrame([
-                {"no": 1, "lokasi": "Rack A1", "deskripsi": "Aircraft Part Serviceable", "batch": "10", "jumlah": "50", "match": "48", "not_match": "2", "akurasi": "96%"},
+                {"no": 1, "lokasi": "Rack A1", "deskripsi": "Aircraft Part Serviceable", "batch": "10", "jumlah": "50", "match": "48", "not_match": "2", "akurasi": "96"},
             ]),
             num_rows="dynamic",
             key="editor_serviceable",
@@ -169,7 +162,7 @@ elif st.session_state["page"] == "form_input":
         st.markdown("**Hasil pemeriksaan Aircraft Part di Unserviceable Area**")
         df_unserviceable = st.data_editor(
             pd.DataFrame([
-                {"no": 1, "lokasi": "Scrap Area", "deskripsi": "Aircraft Part Unserviceable", "batch": "2", "jumlah": "5", "match": "5", "not_match": "0", "akurasi": "100%"},
+                {"no": 1, "lokasi": "Scrap Area", "deskripsi": "Aircraft Part Unserviceable", "batch": "2", "jumlah": "5", "match": "5", "not_match": "0", "akurasi": "100"},
             ]),
             num_rows="dynamic",
             key="editor_unserviceable",
@@ -210,9 +203,7 @@ elif st.session_state["page"] == "form_input":
             use_container_width=True
         )
 
-    # ---------------------------------------------------------
     # 3. PROSES GENERATE & DOWNLOAD DOKUMEN
-    # ---------------------------------------------------------
     st.divider()
     if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
         with st.spinner("Suki lagi merakit Berita Acara dari Google Drive... 😹"):
@@ -284,3 +275,4 @@ elif st.session_state["page"] == "form_input":
 
             except Exception as e:
                 st.error(f"❌ Gagal memproses Berita Acara: {e}")
+                st.info("💡 **Tips:** Periksa kembali file Template Word (.docx) di Google Drive kamu. Pastikan tidak ada karakter `%` mentah atau salah ketik penulisan tag Jinja (seperti `{%` atau `{{`) di dalam teks atau tabel template.")
