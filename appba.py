@@ -1,33 +1,41 @@
+import io
 import os
-import tempfile
 import subprocess
+import tempfile
 import pandas as pd
+import requests
 import streamlit as st
 from docxtpl import DocxTemplate
 
 st.set_page_config(
-    page_title="Generator BA Stock Opname",
+    page_title="Generator BA Stock Opname Suki",
     page_icon="📋",
     layout="wide"
 )
 
 # ---------------------------------------------------------
-# DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE
+# DIRECT LINK TEMPLATE MASTER GOOGLE DRIVE (BERITA ACARA)
 # ---------------------------------------------------------
-TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download&id=1jB-AkIpVZmX_BGDiW6j-mTUIluYlZqeo"
+TEMPLATE_DRIVE_URL = "https://drive.google.com/uc?export=download"
+FILE_ID_BA = "1jB-AkIpVZmX_BGDiW6j-mTUIluYlZqeo"
 
 @st.cache_data
 def fetch_master_template():
-    """Mengunduh template master dari Google Drive dan menyimpannya di cache Streamlit."""
-    response = requests.get(TEMPLATE_DRIVE_URL)
+    """Mengunduh template master Berita Acara dari Google Drive dengan penanganan konfirmasi virus scan."""
+    session = requests.Session()
+    response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA}, stream=True)
+    
+    for key, value in response.cookies.items():
+        if key.startswith("download_warning"):
+            response = session.get(TEMPLATE_DRIVE_URL, params={"id": FILE_ID_BA, "confirm": value}, stream=True)
+            break
+            
     response.raise_for_status()
     return io.BytesIO(response.content)
-
 
 # ---------------------------------------------------------
 # DATA STATION & UNIT KERJA (LOKAL)
 # ---------------------------------------------------------
-# Lu bisa sesuaikan daftar station & unit kerja di bawah ini
 DATA_STATION = {
     "Bandar Udara Internasional Sultan Mahmud Badaruddin II - PLM": ["Line Maintenance", "GSE"],
     "Bandar Udara Internasional Soekarno–Hatta - CGK": ["Line Maintenance", "GSE"],
@@ -58,7 +66,7 @@ if "page" not in st.session_state:
 # PAGE 1: LANDING PAGE (SELEKSI STATION & UNIT KERJA)
 # =========================================================
 if st.session_state["page"] == "landing":
-    st.title("📋 Generator Berita Acara Stock Opname")
+    st.title("📋 Generator Berita Acara Stock Opname Suki")
     st.write("Pilih station lokasi audit dan unit kerja untuk memulai pembuatan Berita Acara.")
 
     st.divider()
@@ -97,14 +105,13 @@ if st.session_state["page"] == "landing":
 # PAGE 2: FORM INPUT AUDIT & DOKUMEN GENERATOR
 # =========================================================
 elif st.session_state["page"] == "form_input":
-    # Header Navigasi Halaman
     col_nav1, col_nav2 = st.columns([1, 5])
     with col_nav1:
         if st.button("⬅️ Kembali", use_container_width=True):
             st.session_state["page"] = "landing"
             st.rerun()
 
-    st.title("📝 Form Data Stock Opname")
+    st.title("📝 Form Data Stock Opname Berita Acara")
     st.caption(f"📍 **Station:** `{st.session_state.get('station', '-')}` | 🏭 **Unit Kerja:** `{st.session_state.get('kategori', '-')}`")
     st.divider()
 
@@ -119,11 +126,12 @@ elif st.session_state["page"] == "form_input":
             LIST_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
             bulan = st.selectbox("Bulan", LIST_BULAN)
 
-            # Hitung otomatis bulan lalu berdasarkan pilihan user
             idx_bln = LIST_BULAN.index(bulan)
             bulan_lalu = LIST_BULAN[idx_bln - 1]  # Otomatis mundur 1 bulan
             tahun = st.number_input("Tahun", min_value=2024, max_value=2030, value=2026)
-            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', 'selected_station')
+            
+            # [FIXED] Penambahan tanda kurung tutup yang kurang sebelumnya
+            lokasi_bandara = st.text_input("Lokasi / Bandara", value=st.session_state.get('station', 'selected_station'))
             alamat = st.text_input("Alamat", "Jl. Bandara Sultan Mahmud Badaruddin II")
 
         with col2:
@@ -203,37 +211,31 @@ elif st.session_state["page"] == "form_input":
         )
 
     # ---------------------------------------------------------
-    # 3. PROSES GENERATE & DOWNLOAD DOKUMEN (PAKAI TEMPLATE MASTER)
+    # 3. PROSES GENERATE & DOWNLOAD DOKUMEN
     # ---------------------------------------------------------
     st.divider()
     if st.button("🚀 Generate Berita Acara", type="primary", use_container_width=True):
-        template_path = "TEMPLATE MASTER BERITA ACARA STOCK OPNAME AUDIT ASSET.docx"
-
-        if not os.path.exists(template_path):
-            st.error(f"❌ Template master tidak ditemukan di `{template_path}`. Pastikan file `.docx` sudah ada di folder `templates/` repo GitHub lu.")
-        else:
-            with st.spinner("Menyusun Berita Acara..."):
-                doc = DocxTemplate(template_path)
+        with st.spinner("Suki lagi merakit Berita Acara dari Google Drive... 😹"):
+            try:
+                template_bytes = fetch_master_template()
+                doc = DocxTemplate(template_bytes)
+                
                 context = {
-                "hari": hari,
-                "tanggal": tanggal,
-                "bulan": bulan,
-                "bulan_lalu": bulan_lalu,                  # Tag nama bulan lalu (misal: "Desember")
-                "tahun": tahun,
-                "lokasi": lokasi_bandara,
-                "alamat": alamat,
-                "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
-                "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
-    
-                # Tag PJ Store
-                "pj_store": pj_store_sekarang,             # PJ Store bulan ini
-                "pj_store_lalu": pj_store_lalu,           # PJ Store 1 bulan lalu
-                "audit_aset": audit_aset,
-                "pic_lm": pic_lm,
-                "station": st.session_state.get("station", ""),
-                "unit_kerja": st.session_state.get("kategori", ""),
-    
-                # Data Tabel
+                    "hari": hari,
+                    "tanggal": tanggal,
+                    "bulan": bulan,
+                    "bulan_lalu": bulan_lalu,
+                    "tahun": tahun,
+                    "lokasi": lokasi_bandara,
+                    "alamat": alamat,
+                    "tgl_mulai": tgl_mulai.strftime("%d-%m-%Y"),
+                    "tgl_selesai": tgl_selesai.strftime("%d-%m-%Y"),
+                    "pj_store": pj_store_sekarang,
+                    "pj_store_lalu": pj_store_lalu,
+                    "audit_aset": audit_aset,
+                    "pic_lm": pic_lm,
+                    "station": st.session_state.get("station", ""),
+                    "unit_kerja": st.session_state.get("kategori", ""),
                     "rows_serviceable": df_serviceable.to_dict('records'),
                     "rows_unserviceable": df_unserviceable.to_dict('records'),
                     "rows_unrecorded": df_unrecorded.to_dict('records'),
@@ -257,7 +259,7 @@ elif st.session_state["page"] == "form_input":
                         with open(pdf_path, "rb") as f:
                             pdf_bytes = f.read()
 
-                    st.success("✅ Berita Acara berhasil di-generate!")
+                    st.success("✅ Berita Acara Berhasil Dihitamkan (Generated) 😹")
 
                     c1, c2 = st.columns(2)
                     with c1:
@@ -279,3 +281,6 @@ elif st.session_state["page"] == "form_input":
                             )
                         else:
                             st.warning("⚠️ Konversi PDF hanya berfungsi jika LibreOffice terpasang di server.")
+
+            except Exception as e:
+                st.error(f"❌ Gagal memproses Berita Acara: {e}")
